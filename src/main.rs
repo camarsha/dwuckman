@@ -40,7 +40,7 @@ fn main() {
     let mut r_grid: Vec<f64> = (0..points).map(|x| h * x as f64).collect();
 
     r_grid[0] = 1e-10;
-
+    
     let mut ff: FormFactor = FormFactor::new(&r_grid);
     let a13 = (12.0_f64).powf(1.0 / 3.0);
 
@@ -59,7 +59,7 @@ fn main() {
 
     // set up the angles for the cross sections
     let mut angles: Vec<f64> = (0..180).map(|x| x as f64).collect();
-    angles[0] = 1e-2;
+    angles[0] = 1e-4;
     let angles_rad: Vec<f64> = angles.iter().map(|x| x * PI / 180.0).collect();
 
     // and the final l loop
@@ -113,25 +113,23 @@ fn main() {
 
         let phase_shift = matching::phase_shift(phi0, phih, rho_R, rho_Rh, eta, l);
 
+ //      println!("{} {} {}", l, phase_shift.re, phase_shift.im);
         //Calculate and print S matrix
         let S_mat: Complex<f64> = (2.0 * j * phase_shift).exp();
-
-        println!{"{} {} {}", l, phase_shift.re, phase_shift.im}
         
-        let a = cross_section::cs_spin_zero(&angles_rad, phase_shift, l, eta, k);
+        let a = cross_section::spin_zero_amp(&angles_rad, phase_shift, l, eta, k);
 
         A = A.iter().zip(a.iter()).map(|(&x, &y)| x + y).collect();
     }
-    // A(theta) = f_c + other crap, so calculate l=0 coulomb amplitude
-    A = A
-        .iter()
-        .zip(cross_section::coulomb_ampl(&angles_rad, eta, k).iter())
-        .map(|(&x, &y)| x + y)
-        .collect();
-    let sigma: Vec<f64> = A.iter().map(|&x| x.norm().powi(2)*10.0).collect();
+
+    // 
+    let sigma: Vec<f64> = cross_section::diff_cross_section(&angles_rad, eta, k, A.as_slice());
 
     // I like ratio to rutherford
     let R = cross_section::rutherford_cs(&angles_rad, eta, k);
-    let RR
-    println!("{:?} {:?}" )
+    let RR: Vec<f64> = sigma.iter().zip(R.iter()).map(|(&x, &y)| x / y).collect();
+    // output to text file
+    for (sig, ang) in sigma.iter().zip(angles){
+        println!("{} {}", ang, sig);
+    }
 }

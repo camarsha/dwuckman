@@ -118,7 +118,7 @@ pub fn phase_shift(
     let num = (phi_R * fun_Rh[0]) - (phi_Rh * fun_R[0]);
     let denom = (phi_R * fun_Rh[2]) - (phi_Rh * fun_R[2]);
 
-    (num / denom).atan()
+    -1.0 * (num / denom).atan()
 }
 
 pub fn backward_difference(
@@ -160,5 +160,5 @@ pub fn phase_shift_derivative(
     let R_matrix: Complex<f64> = (1.0 / r_match) * (phi / d_phi);
     let S_matrix: Complex<f64> =
         (fun_R[2] - (rho_R * fun_R[3] * R_matrix)) / (fun_R[0] - (rho_R * fun_R[1] * R_matrix));
-    S_matrix.ln() / (2.0 * Complex::new(0.0, 1.0))
+    -1.0 * S_matrix.ln() / (2.0 * Complex::new(0.0, 1.0))
 }
