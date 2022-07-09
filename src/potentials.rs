@@ -79,7 +79,7 @@ impl FormFactor {
         }
     }
 
-    pub fn add_centrifugal(grid: &[f64], l: f64, re: &[f64]) -> Vec<f64>{
+    pub fn add_centrifugal(grid: &[f64], l: f64, re: &[f64]) -> Vec<f64> {
         let mut temp: Vec<f64> = centrifugal(grid, l);
         for i in 0..temp.len() {
             temp[i] += re[i];
@@ -87,6 +87,3 @@ impl FormFactor {
         temp
     }
 }
-
-
-

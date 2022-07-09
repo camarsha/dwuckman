@@ -10,6 +10,8 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::io::Write;
 use wave_function::WaveFunction;
+extern crate rayon;
+use rayon::prelude::*;
 
 fn main() {
     // constants for the calculation
@@ -40,7 +42,7 @@ fn main() {
     let mut r_grid: Vec<f64> = (0..points).map(|x| h * x as f64).collect();
 
     r_grid[0] = 1e-10;
-    
+
     let mut ff: FormFactor = FormFactor::new(&r_grid);
     let a13 = (12.0_f64).powf(1.0 / 3.0);
 
@@ -62,10 +64,8 @@ fn main() {
     angles[0] = 1e-4;
     let angles_rad: Vec<f64> = angles.iter().map(|x| x * PI / 180.0).collect();
 
-    // and the final l loop
-
     // Amplitude Sum
-    let mut A: Vec<Complex<f64>> = vec![Complex::new(0.0, 0.0); angles.len()];
+    //let A: Vec<Complex<f64>> = vec![Complex::new(0.0, 0.0); angles.len()];
 
     // matching radii
     let Rh_idx = r_grid.len() - 1;
@@ -80,56 +80,65 @@ fn main() {
     // l-independent potential has been calculated
     let FormFactor { re, im, grid } = ff;
 
-    // partial wave loop
-    for (i, &l) in ell.iter().enumerate() {
-        // create wave function
-        let mut phi = WaveFunction::new(&r_grid);
+    // parallel partial wave loop
+    let ell_ampl: Vec<Vec<Complex<f64>>> = ell
+        .into_par_iter()
+        .map(|l| {
+            // create wave function
+            let mut phi = WaveFunction::new(&r_grid);
 
-        // add centrifugal term
-        let re = FormFactor::add_centrifugal(&r_grid, l, re.as_slice());
+            // starting values for integration
+            phi.setup(h, l);
 
-        // starting values for integration
-        phi.setup(h, l);
-        // special case for l=1, see Melkanoff
-        if l as i32 == 1 {
-            phi.re[phi.start_idx - 1] = 2.0 / re[0];
-        }
+            // add centrifugal term
+            let re = FormFactor::add_centrifugal(&r_grid, l, re.as_slice());
 
-        integrate::fox_goodwin_coupled(
-            h,
-            &re[..],
-            &im[..],
-            phi.re.as_mut_slice(),
-            phi.im.as_mut_slice(),
-            phi.start_idx,
-        );
+            // special case for l=1, see Melkanoff
+            if l as i32 == 1 {
+                phi.re[phi.start_idx - 1] = 2.0 / re[0];
+            }
 
-        // values for matching using Psuedo-Wronskian
+            integrate::fox_goodwin_coupled(
+                h,
+                &re[..],
+                &im[..],
+                phi.re.as_mut_slice(),
+                phi.im.as_mut_slice(),
+                phi.start_idx,
+            );
 
-        let phih = Complex::new(phi.re[R_idx + 1], phi.im[R_idx + 1]);
-        let phi0 = Complex::new(phi.re[R_idx], phi.im[R_idx]);
-        let phi1 = Complex::new(phi.re[R_idx - 1], phi.im[R_idx - 1]);
-        let phi2 = Complex::new(phi.re[R_idx - 2], phi.im[R_idx - 2]);
+            // values for matching using Psuedo-Wronskian
 
-        let phase_shift = matching::phase_shift(phi0, phih, rho_R, rho_Rh, eta, l);
+            let phih = Complex::new(phi.re[R_idx + 1], phi.im[R_idx + 1]);
+            let phi0 = Complex::new(phi.re[R_idx], phi.im[R_idx]);
+            let phi1 = Complex::new(phi.re[R_idx - 1], phi.im[R_idx - 1]);
+            let phi2 = Complex::new(phi.re[R_idx - 2], phi.im[R_idx - 2]);
 
- //      println!("{} {} {}", l, phase_shift.re, phase_shift.im);
-        //Calculate and print S matrix
-        let S_mat: Complex<f64> = (2.0 * j * phase_shift).exp();
-        
-        let a = cross_section::spin_zero_amp(&angles_rad, phase_shift, l, eta, k);
+            let phase_shift = matching::phase_shift(phi0, phih, rho_R, rho_Rh, eta, l);
 
-        A = A.iter().zip(a.iter()).map(|(&x, &y)| x + y).collect();
+            //      println!("{} {} {}", l, phase_shift.re, phase_shift.im);
+            //Calculate and print S matrix
+            let S_mat: Complex<f64> = (2.0 * j * phase_shift).exp();
+
+            let a = cross_section::spin_zero_amp(&angles_rad, phase_shift, l, eta, k);
+            a
+        })
+        .collect();
+
+    // sum the amplitudes
+    let mut A: Vec<Complex<f64>> = vec![Complex::new(0.0, 0.0); angles.len()];
+
+    for ele in ell_ampl.iter() {
+        A = A.iter().zip(ele.iter()).map(|(&x, &y)| x + y).collect();
     }
 
-    // 
     let sigma: Vec<f64> = cross_section::diff_cross_section(&angles_rad, eta, k, A.as_slice());
 
     // I like ratio to rutherford
     let R = cross_section::rutherford_cs(&angles_rad, eta, k);
     let RR: Vec<f64> = sigma.iter().zip(R.iter()).map(|(&x, &y)| x / y).collect();
     // output to text file
-    for (sig, ang) in sigma.iter().zip(angles){
+    for (sig, ang) in sigma.iter().zip(angles) {
         println!("{} {}", ang, sig);
     }
 }
