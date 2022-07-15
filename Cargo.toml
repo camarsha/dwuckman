@@ -1,13 +1,19 @@
 [package]
 name = "dwuckman"
 version = "0.1.0"
-authors = ["caleb <camarsha@ncsu.edu>"]
+authors = ["caleb <marshallc@ohio.edu>"]
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+name = "dwuckman"
+crate-type = ["cdylib"]
+path = "src/lib.rs"
 
 [dependencies]
 
 rayon = "1.5"
 GSL = "4.0"
 num = "0.4.0"
+pyo3 = { version = "0.15.1", features = ["extension-module"] }

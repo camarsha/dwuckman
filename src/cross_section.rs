@@ -1,14 +1,12 @@
 use num::complex::Complex;
 use rgsl::gamma_beta::gamma::lngamma_complex_e;
 use rgsl::legendre::polynomials::legendre_Pl;
-use rgsl::{Result, Value};
 
 pub fn coulomb_phase_shift(l: f64, eta: f64) -> f64 {
     let zr = l + 1.0;
     let zi = eta;
-    let mut overflow: Value = Value::OverFlow;
 
-    let (overflow, mut lnr, mut arg) = lngamma_complex_e(zr, zi);
+    let (_overflow, _lnr, arg) = lngamma_complex_e(zr, zi);
     // We just care about arg
     arg.val
 }
@@ -33,8 +31,8 @@ pub fn coulomb_ampl(angles: &[f64], eta: f64, k: f64) -> Vec<Complex<f64>> {
 pub fn rutherford_cs(angles: &[f64], eta: f64, k: f64) -> Vec<f64> {
     // Calculate the Rutherford differential cross section in mb/sr
     let f: Vec<Complex<f64>> = coulomb_ampl(angles, eta, k);
-    let dR: Vec<f64> = f.iter().map(|x| x.norm_sqr()).collect();
-    dR
+    let ruth: Vec<f64> = f.iter().map(|x| x.norm_sqr()).collect();
+    ruth
 }
 
 // calculate spin 0 amplitude
@@ -49,18 +47,18 @@ pub fn spin_zero_amp(
     let coul_ps: f64 = coulomb_phase_shift(l, eta); //coulomb phase shift
     let coul_term: Complex<f64> = (2.0 * coul_ps * Complex::i()).exp();
     let int_l = l as i32;
-    let Pl: Vec<f64> = angles
+    let pl: Vec<f64> = angles
         .iter()
         .map(|x| 1.0 / k * (2.0 * l + 1.0) * legendre_Pl(int_l, f64::cos(*x)))
         .collect();
-    let C: Complex<f64> =
+    let c_l: Complex<f64> =
         (-Complex::i() / 2.0) * ((2.0_f64 * Complex::i() * phase_shift).exp() - 1.0);
-    Pl.iter().map(|x| *x * coul_term * C).collect()
+    pl.iter().map(|x| *x * coul_term * c_l).collect()
 }
 
 pub fn diff_cross_section(angles: &[f64], eta: f64, k: f64, f_nuc: &[Complex<f64>]) -> Vec<f64> {
     // Coulomb part
-    let f_coul = coulomb_ampl(&angles, eta, k);
+    let f_coul = coulomb_ampl(angles, eta, k);
     // total is nuclear + coulomb
     let f: Vec<Complex<f64>> = f_nuc
         .iter()
