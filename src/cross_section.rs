@@ -1,5 +1,6 @@
 use num::complex::Complex;
 use rgsl::gamma_beta::gamma::lngamma_complex_e;
+use rgsl::legendre::associated_polynomials::legendre_Plm;
 use rgsl::legendre::polynomials::legendre_Pl;
 
 pub fn coulomb_phase_shift(l: f64, eta: f64) -> f64 {
@@ -35,8 +36,9 @@ pub fn rutherford_cs(angles: &[f64], eta: f64, k: f64) -> Vec<f64> {
     ruth
 }
 
-// calculate spin 0 amplitude
-
+/// calculate spin 0 amplitude
+/// Uses Melkanoff notation, so C_l = -i/2 * [exp(2 * i * delta_l) - 1]
+/// Rest is standard calculate of scattering amplitudes.
 pub fn spin_zero_amp(
     angles: &[f64],
     phase_shift: Complex<f64>,
@@ -54,6 +56,47 @@ pub fn spin_zero_amp(
     let c_l: Complex<f64> =
         (-Complex::i() / 2.0) * ((2.0_f64 * Complex::i() * phase_shift).exp() - 1.0);
     pl.iter().map(|x| *x * coul_term * c_l).collect()
+}
+
+/// Now we have l - 1/2 and l + 1/2.
+pub fn spin_half(
+    angles: &[f64],
+    phase_shift_minus: Complex<f64>,
+    phase_shift_plus: Complex<f64>,
+    l: f64,
+    eta: f64,
+    k: f64,
+) -> (Vec<Complex<f64>>, Vec<Complex<f64>>) {
+    let coul_ps: f64 = coulomb_phase_shift(l, eta); //coulomb phase shift
+    let coul_term: Complex<f64> = (2.0 * coul_ps * Complex::i()).exp();
+    let int_l = l as i32;
+    // regular polynomial terms
+    let pl: Vec<f64> = angles
+        .iter()
+        .map(|x| 1.0 / k * legendre_Pl(int_l, f64::cos(*x)))
+        .collect();
+    // associated polynomial terms
+    let pl_1: Vec<f64> = angles
+        .iter()
+        .map(|x| 1.0 / k * legendre_Plm(int_l, 1, f64::cos(*x)))
+        .collect();
+
+    let c_minus: Complex<f64> =
+        (-Complex::i() / 2.0) * ((2.0_f64 * Complex::i() * phase_shift_minus).exp() - 1.0);
+    let c_plus: Complex<f64> =
+        (-Complex::i() / 2.0) * ((2.0_f64 * Complex::i() * phase_shift_plus).exp() - 1.0);
+    // We have two coeff this time
+
+    let a_theta: Vec<Complex<f64>> = pl
+        .iter()
+        .map(|x| *x * coul_term * ((l + 1.0) * c_plus + l * c_minus))
+        .collect();
+
+    let b_theta: Vec<Complex<f64>> = pl
+        .iter()
+        .map(|x| *x * coul_term * (c_plus - c_minus))
+        .collect();
+    (a_theta, b_theta)
 }
 
 pub fn diff_cross_section(angles: &[f64], eta: f64, k: f64, f_nuc: &[Complex<f64>]) -> Vec<f64> {

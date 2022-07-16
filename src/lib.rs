@@ -12,6 +12,26 @@ use pyo3::prelude::*;
 use std::f64::consts::PI;
 
 /// Elastic scattering for spin zero particles also returns rutherford.
+///fn spin_zero(
+///     a1: f64,
+///     m1: f64,
+///     z1: f64,
+///     a2: f64,
+///     m2: f64,
+///     z2: f64,
+///     energy_lab: f64,
+///     V: f64,
+///     r: f64,
+///     a: f64,
+///     W: f64,
+///     r_i: f64,
+///     a_i: f64,
+///     r_c: f64,
+///     partial_waves: i32,
+///     angles: Vec<f64>,
+///     r_match: f64,
+///     dr: f64,
+/// ) -> (Vec<f64>, Vec<f64>)
 #[pyfunction]
 fn spin_zero(
     a1: f64,
@@ -39,8 +59,11 @@ fn spin_zero(
     let m1 = m1 * u_to_MeV;
     let m2 = m2 * u_to_MeV;
 
-    let r = r * a1.powf(1.0 / 3.0);
-    let r_i = r_i * a1.powf(1.0 / 3.0);
+    let a13 = a2.powf(1.0 / 3.0);
+
+    let r = r * a13;
+    let r_i = r_i * a13;
+    let r_c = r_c * a13;
 
     let energy_com = energy_lab * (m2 / (m1 + m2));
     let mu = (m1 * m2) / (m1 + m2);
@@ -66,7 +89,7 @@ fn spin_zero(
         calculation::setup_form_factor(r_grid.as_slice(), V, r, a, W, r_i, a_i, z1, z2, r_c, k, mu);
 
     // calculate the scattering amplitude not that ff will be moved
-    let total_ampl: Vec<Complex<f64>> = calculation::partial_waves(
+    let total_ampl: Vec<Complex<f64>> = calculation::partial_waves_par(
         r_grid.as_slice(),
         ff,
         angles.as_slice(),
