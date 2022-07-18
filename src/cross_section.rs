@@ -59,7 +59,7 @@ pub fn spin_zero_amp(
 }
 
 /// Now we have l - 1/2 and l + 1/2.
-pub fn spin_half(
+pub fn spin_half_ampl(
     angles: &[f64],
     phase_shift_minus: Complex<f64>,
     phase_shift_plus: Complex<f64>,
@@ -99,7 +99,7 @@ pub fn spin_half(
     (a_theta, b_theta)
 }
 
-pub fn diff_cross_section(angles: &[f64], eta: f64, k: f64, f_nuc: &[Complex<f64>]) -> Vec<f64> {
+pub fn diff_cross_section(angles: &[f64], f_nuc: &[Complex<f64>], k: f64, eta: f64) -> Vec<f64> {
     // Coulomb part
     let f_coul = coulomb_ampl(angles, eta, k);
     // total is nuclear + coulomb
@@ -111,4 +111,41 @@ pub fn diff_cross_section(angles: &[f64], eta: f64, k: f64, f_nuc: &[Complex<f64
     // modulus and factor of 10 gets you to mb/sr
     let cs = f.iter().map(|&x| 10.0 * x.norm_sqr()).collect();
     cs
+}
+
+/// This calculates differential cross section and first order analyzing power
+pub fn all_observables(
+    angles: &[f64],
+    a_nuc: &[Complex<f64>],
+    b_nuc: &[Complex<f64>],
+    k: f64,
+    eta: f64,
+) -> (Vec<f64>, Vec<f64>) {
+    // Coulomb part
+    let f_coul = coulomb_ampl(angles, eta, k);
+    // A(theta) has the nuclear + coulomb part
+    let a_nuc_coul: Vec<Complex<f64>> = a_nuc
+        .iter()
+        .zip(f_coul.iter())
+        .map(|(&x, &y)| x + y)
+        .collect();
+    // |A|^2 + |B|^2 for cross section
+    // modulus and factor of 10 gets you to mb/sr
+    let cs: Vec<f64> = a_nuc_coul
+        .iter()
+        .zip(b_nuc.iter())
+        .map(|(&a, &b)| 10.0 * (a.norm_sqr() + b.norm_sqr()))
+        .collect();
+    // (A*)B + A (B*) / |A|^2 + |B|^2, and I know exactly what I did
+    let anal_power: Vec<f64> = a_nuc_coul
+        .iter()
+        .zip(b_nuc.iter())
+        .zip(cs.iter())
+        .map(|((&a, &b), &denom)| {
+            let term1 = a.im * b.re;
+            let term2 = a.re * b.im;
+            (term1 + term2) / denom
+        })
+        .collect();
+    (cs, anal_power)
 }

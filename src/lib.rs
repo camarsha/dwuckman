@@ -11,6 +11,22 @@ use potentials::FormFactor;
 use pyo3::prelude::*;
 use std::f64::consts::PI;
 
+fn deg_to_rad(angles: &[f64]) -> Vec<f64> {
+    // check and convert angles
+    let rad_angles: Vec<f64> = angles
+        .into_iter()
+        .map(|&x| {
+            let y: f64 = if x < 1e-4 {
+                1e-4 * PI / 180.0 // 1e-4 is the smallest angle we will consider
+            } else {
+                x * PI / 180.0
+            };
+            y
+        })
+        .collect();
+    rad_angles
+}
+
 /// Elastic scattering for spin zero particles also returns rutherford.
 ///fn spin_zero(
 ///     a1: f64,
@@ -71,17 +87,7 @@ fn spin_zero(
     let eta = ((z1 * z2) * e2) * (mu / (hbar.powi(2) * k));
 
     // check and convert angles
-    let angles: Vec<f64> = angles
-        .into_iter()
-        .map(|x| {
-            let y: f64 = if x < 1e-4 {
-                1e-4 * PI / 180.0 // 1e-4 is the smallest angle we will consider
-            } else {
-                x * PI / 180.0
-            };
-            y
-        })
-        .collect();
+    let angles: Vec<f64> = deg_to_rad(&angles);
 
     // setup the grid and the potentials
     let r_grid: Vec<f64> = calculation::setup_grid(r_match, dr);
@@ -107,7 +113,7 @@ fn spin_zero(
 
     // cross section in mb
     let sigma: Vec<f64> =
-        cross_section::diff_cross_section(angles.as_slice(), eta, k, total_ampl.as_slice());
+        cross_section::diff_cross_section(angles.as_slice(), total_ampl.as_slice(), k, eta);
     let ruth: Vec<f64> = cross_section::rutherford_cs(angles.as_slice(), eta, k);
     (sigma, ruth)
 }
@@ -172,17 +178,7 @@ fn spin_zero(
 //     let eta = ((z1 * z2) * e2) * (mu / (hbar.powi(2) * k));
 
 //     // check and convert angles
-//     let angles: Vec<f64> = angles
-//         .into_iter()
-//         .map(|x| {
-//             let y: f64 = if x < 1e-4 {
-//                 1e-4 * PI / 180.0 // 1e-4 is the smallest angle we will consider
-//             } else {
-//                 x * PI / 180.0
-//             };
-//             y
-//         })
-//         .collect();
+//     let angles: Vec<f64> = deg_to_rad(&angles);
 
 //     // setup the grid and the potentials
 //     let r_grid: Vec<f64> = calculation::setup_grid(r_match, dr);

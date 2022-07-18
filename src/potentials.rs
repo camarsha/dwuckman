@@ -139,15 +139,15 @@ impl FormFactor {
         }
     }
 
-    pub fn update_centrifugal(&self, l: f64) -> Vec<f64> {
+    pub fn update_centrifugal(&self, re: &[f64], l: f64) -> Vec<f64> {
         let mut temp: Vec<f64> = centrifugal(self.grid.as_slice(), l);
         for i in 0..temp.len() {
-            temp[i] += self.re[i];
+            temp[i] += re[i];
         }
         temp
     }
 
-    pub fn update_spin_orbit(&self, l: f64, s: f64) -> Vec<f64> {
+    pub fn update_spin_orbit(&self, re: &[f64], l: f64, s: f64) -> Vec<f64> {
         let mut temp: Vec<f64> = spin_orbit(
             self.grid.as_slice(),
             l,
@@ -159,7 +159,7 @@ impl FormFactor {
         );
         for i in 0..temp.len() {
             // need to properly scale this as well
-            temp[i] += self.re[i];
+            temp[i] += re[i];
         }
         temp
     }
