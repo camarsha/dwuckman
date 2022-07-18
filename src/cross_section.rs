@@ -75,27 +75,33 @@ pub fn spin_half_ampl(
         .iter()
         .map(|x| 1.0 / k * legendre_Pl(int_l, f64::cos(*x)))
         .collect();
-    // associated polynomial terms
-    let pl_1: Vec<f64> = angles
-        .iter()
-        .map(|x| 1.0 / k * legendre_Plm(int_l, 1, f64::cos(*x)))
-        .collect();
 
+    // associated polynomial terms, exception for l = 0
+    let pl_1: Vec<f64> = if l > 0.0 {
+        angles
+            .iter()
+            .map(|x| 1.0 / k * legendre_Plm(int_l, 1, f64::cos(*x)))
+            .collect()
+    } else {
+        vec![0.0; angles.len()]
+    };
+
+    // We have two coeff this time
     let c_minus: Complex<f64> =
         (-Complex::i() / 2.0) * ((2.0_f64 * Complex::i() * phase_shift_minus).exp() - 1.0);
     let c_plus: Complex<f64> =
         (-Complex::i() / 2.0) * ((2.0_f64 * Complex::i() * phase_shift_plus).exp() - 1.0);
-    // We have two coeff this time
 
     let a_theta: Vec<Complex<f64>> = pl
         .iter()
         .map(|x| *x * coul_term * ((l + 1.0) * c_plus + l * c_minus))
         .collect();
 
-    let b_theta: Vec<Complex<f64>> = pl
+    let b_theta: Vec<Complex<f64>> = pl_1
         .iter()
         .map(|x| *x * coul_term * (c_plus - c_minus))
         .collect();
+
     (a_theta, b_theta)
 }
 

@@ -42,6 +42,9 @@ pub fn setup_form_factor(
     W: f64,
     r_i: f64,
     a_i: f64,
+    V_so: f64,
+    r_so: f64,
+    a_so: f64,
     z1: f64,
     z2: f64,
     r_c: f64,
@@ -57,14 +60,18 @@ pub fn setup_form_factor(
     if W != 0.0 {
         ff.add_woods_saxon(W, r_i, a_i, false);
     };
-    if r_c != 0.0 {
+    if z1 != 0.0 {
         ff.add_coulomb(z1, z2, r_c);
     };
+    if V_so != 0.0 {
+        ff.add_spin_orbit(V_so, r_so, a_so);
+    }
     ff.scale(k, mu);
 
     ff
 }
 
+/// Returns a tuple of the index and rho values at the matching radius
 pub fn match_points(r_grid: &[f64], k: f64) -> (usize, f64, f64) {
     let r_idx = r_grid.len() - 2;
     let rho_r = r_grid[r_idx] * k;
@@ -259,7 +266,6 @@ pub fn partial_waves_half_par(
                     phi_r, phi_rh, rho_r, rho_rh, ff.eta, l,
                 ));
             }
-
             cross_section::spin_half_ampl(angles, phase_shifts[0], phase_shifts[1], l, ff.eta, ff.k)
         })
         .collect();
