@@ -1,5 +1,8 @@
 use crate::constants::*;
-use num::complex::Complex;
+
+/// A struct to hold all currently defined potential parameters.
+/// The alternative is to start passing 20+ arguments to functions.
+pub struct PotParams {}
 
 /// Woods-Saxon form factor. Given a positive V, returns -f(V, r, a).
 pub fn woods_saxon(x: &[f64], V: f64, r: f64, a: f64) -> Vec<f64> {
@@ -41,7 +44,7 @@ pub fn centrifugal(x: &[f64], l: f64) -> Vec<f64> {
     result
 }
 
-pub fn spin_orbit(x: &[f64], V: f64, r: f64, a: f64, l: f64, s: f64) -> Vec<f64> {
+pub fn spin_orbit(x: &[f64], V: f64, r: f64, a: f64, l: f64, s: f64, mu: f64) -> Vec<f64> {
     let mut result = vec![0.0; x.len()];
 
     let j = l + s; // s is assumed to have a sign
@@ -49,10 +52,13 @@ pub fn spin_orbit(x: &[f64], V: f64, r: f64, a: f64, l: f64, s: f64) -> Vec<f64>
     let l_term = l * (l + 1.0);
     let s_term = s.abs() * (s.abs() + 1.0); // s needs to be positive now
     let spin_term = (j_term - l_term - s_term) / 2.0;
+    //scaling
+    let c: f64 = -(2.0 * mu) / hbar.powi(2);
 
     for (i, &ele) in x.iter().enumerate() {
         result[i] = 2.0 * spin_term * (V / ele * f64::exp((ele - r) / a))
-            / (1.0 + f64::exp((ele - r) / a)).powi(2);
+            / (1.0 + f64::exp((ele - r) / a)).powi(2)
+            * c;
     }
     result
 }
@@ -68,16 +74,28 @@ pub struct FormFactor {
     pub re: Vec<f64>,
     pub im: Vec<f64>,
     pub grid: Vec<f64>,
+    pub mu: f64,
+    pub k: f64,
+    pub eta: f64,
+    pub V_so: f64,
+    pub r_so: f64,
+    pub a_so: f64,
 }
 
 impl FormFactor {
-    pub fn new(grid: &[f64]) -> FormFactor {
+    pub fn new(grid: &[f64], mu: f64, k: f64, eta: f64) -> FormFactor {
         // grid of radii that each potential will be evaluated on
         let grid_size = grid.len();
         FormFactor {
             re: vec![0.0; grid_size],
             im: vec![0.0; grid_size],
             grid: grid.to_vec(),
+            mu,
+            k,
+            eta,
+            V_so: 0.0,
+            r_so: 0.0,
+            a_so: 0.0,
         }
     }
 
@@ -104,6 +122,13 @@ impl FormFactor {
         add_pot(self.re.as_mut_slice(), temp.as_slice());
     }
 
+    /// This one just simply initializes the spin orbit parameters
+    pub fn add_spin_orbit(&mut self, V: f64, r: f64, a: f64) {
+        self.V_so = V;
+        self.r_so = r;
+        self.a_so = a;
+    }
+
     pub fn scale(&mut self, k: f64, mu: f64) {
         // apply the proper scaling to the l-independent parts
         let c: f64 = -(2.0 * mu) / hbar.powi(2);
@@ -114,30 +139,27 @@ impl FormFactor {
         }
     }
 
-    pub fn add_centrifugal(grid: &[f64], l: f64, re: &[f64]) -> Vec<f64> {
-        let mut temp: Vec<f64> = centrifugal(grid, l);
+    pub fn update_centrifugal(&self, l: f64) -> Vec<f64> {
+        let mut temp: Vec<f64> = centrifugal(self.grid.as_slice(), l);
         for i in 0..temp.len() {
-            temp[i] += re[i];
+            temp[i] += self.re[i];
         }
         temp
     }
 
-    pub fn add_spin_orbit(
-        grid: &[f64],
-        V: f64,
-        r: f64,
-        a: f64,
-        l: f64,
-        s: f64,
-        k: f64,
-        mu: f64,
-        re: &[f64],
-    ) -> Vec<f64> {
-        let mut temp: Vec<f64> = spin_orbit(grid, l, s, V, r, a);
-        let c: f64 = -(2.0 * mu) / hbar.powi(2);
+    pub fn update_spin_orbit(&self, l: f64, s: f64) -> Vec<f64> {
+        let mut temp: Vec<f64> = spin_orbit(
+            self.grid.as_slice(),
+            l,
+            s,
+            self.V_so,
+            self.r_so,
+            self.a_so,
+            self.mu,
+        );
         for i in 0..temp.len() {
             // need to properly scale this as well
-            temp[i] += -k.powi(2) - re[i] * c;
+            temp[i] += self.re[i];
         }
         temp
     }
