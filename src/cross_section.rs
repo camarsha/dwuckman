@@ -12,7 +12,7 @@ pub fn coulomb_phase_shift(l: f64, eta: f64) -> f64 {
     arg.val
 }
 
-pub fn coulomb_ampl(angles: &[f64], eta: f64, k: f64) -> Vec<Complex<f64>> {
+pub fn coulomb_ampl(angles: &[f64], k: f64, eta: f64) -> Vec<Complex<f64>> {
     // This is the point-Coulomb scattering amplitude, i.e it will give you the Rutherford cross section.
     let sig_0 = coulomb_phase_shift(0.0, eta); // l = 0 phase shift
     let mut f = vec![Complex::new(0.0, 0.0); angles.len()];
@@ -32,7 +32,7 @@ pub fn coulomb_ampl(angles: &[f64], eta: f64, k: f64) -> Vec<Complex<f64>> {
 pub fn rutherford_cs(angles: &[f64], eta: f64, k: f64) -> Vec<f64> {
     // Calculate the Rutherford differential cross section in mb/sr
     let f: Vec<Complex<f64>> = coulomb_ampl(angles, eta, k);
-    let ruth: Vec<f64> = f.iter().map(|x| x.norm_sqr()).collect();
+    let ruth: Vec<f64> = f.iter().map(|x| 10.0 * x.norm_sqr()).collect();
     ruth
 }
 
@@ -99,7 +99,7 @@ pub fn spin_half_ampl(
 
     let b_theta: Vec<Complex<f64>> = pl_1
         .iter()
-        .map(|x| *x * coul_term * (c_plus - c_minus))
+        .map(|x| Complex::i() * *x * coul_term * (c_plus - c_minus))
         .collect();
 
     (a_theta, b_theta)
@@ -107,7 +107,7 @@ pub fn spin_half_ampl(
 
 pub fn diff_cross_section(angles: &[f64], f_nuc: &[Complex<f64>], k: f64, eta: f64) -> Vec<f64> {
     // Coulomb part
-    let f_coul = coulomb_ampl(angles, eta, k);
+    let f_coul = coulomb_ampl(angles, k, eta);
     // total is nuclear + coulomb
     let f: Vec<Complex<f64>> = f_nuc
         .iter()
@@ -148,9 +148,9 @@ pub fn all_observables(
         .zip(b_nuc.iter())
         .zip(cs.iter())
         .map(|((&a, &b), &denom)| {
-            let term1 = a.im * b.re;
-            let term2 = a.re * b.im;
-            (term1 + term2) / denom
+            let term1 = a.conj() * b;
+            let term2 = a * b.conj();
+            (term1 + term2).re / denom
         })
         .collect();
     (cs, anal_power)

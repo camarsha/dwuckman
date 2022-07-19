@@ -68,6 +68,7 @@ fn spin_zero(
     angles: Vec<f64>,
     r_match: f64,
     dr: f64,
+    par: bool,
 ) -> (Vec<f64>, Vec<f64>) {
     // reaction constants
 
@@ -111,8 +112,11 @@ fn spin_zero(
     );
 
     // calculate the scattering amplitude not that ff will be moved
-    let total_ampl: Vec<Complex<f64>> =
-        calculation::partial_waves_par(r_grid.as_slice(), ff, angles.as_slice(), partial_waves, dr);
+    let total_ampl: Vec<Complex<f64>> = if par {
+        calculation::partial_waves_par(r_grid.as_slice(), ff, angles.as_slice(), partial_waves, dr)
+    } else {
+        calculation::partial_waves(r_grid.as_slice(), ff, angles.as_slice(), partial_waves, dr)
+    };
 
     // cross section in mb
     let sigma: Vec<f64> =
@@ -121,8 +125,8 @@ fn spin_zero(
     (sigma, ruth)
 }
 
-/// Elastic scattering for spin zero particles also returns rutherford.
-///fn spin_zero(
+/// #[pyfunction]
+/// fn spin_half(
 ///     a1: f64,
 ///     m1: f64,
 ///     z1: f64,
@@ -136,12 +140,16 @@ fn spin_zero(
 ///     W: f64,
 ///     r_i: f64,
 ///     a_i: f64,
+///     V_so: f64,
+///     r_so: f64,
+///     a_so: f64,
 ///     r_c: f64,
 ///     partial_waves: i32,
 ///     angles: Vec<f64>,
 ///     r_match: f64,
 ///     dr: f64,
-/// ) -> (Vec<f64>, Vec<f64>)
+/// ) -> (Vec<f64>, Vec<f64>, Vec<f64>)
+
 #[pyfunction]
 fn spin_half(
     a1: f64,

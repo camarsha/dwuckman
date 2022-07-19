@@ -126,7 +126,6 @@ pub fn partial_waves_par(
             let phi_rh = Complex::new(phi.re[r_idx + 1], phi.im[r_idx + 1]);
 
             let phase_shift = matching::phase_shift(phi_r, phi_rh, rho_r, rho_rh, ff.eta, l);
-
             cross_section::spin_zero_amp(angles, phase_shift, l, ff.eta, ff.k)
         })
         .collect();
@@ -194,6 +193,7 @@ pub fn partial_waves(
         let phi_rh = Complex::new(phi.re[r_idx + 1], phi.im[r_idx + 1]);
 
         let phase_shift = matching::phase_shift(phi_r, phi_rh, rho_r, rho_rh, ff.eta, l);
+        println!("{} {}", phase_shift.re, phase_shift.im);
 
         total_ampl = total_ampl
             .iter()
@@ -230,43 +230,55 @@ pub fn partial_waves_half_par(
     let (a_vec, b_vec): (Vec<Vec<Complex<f64>>>, Vec<Vec<Complex<f64>>>) = ell
         .into_par_iter()
         .map(|l| {
-            // two phase shifts per l now.
-            let mut phase_shifts: Vec<Complex<f64>> = vec![];
-            // iterate over the spins
-            for ele in [-0.5, 0.5] {
-                let mut phi = WaveFunction::new(r_grid);
-                // starting values for integration
-                phi.setup(h, l);
+            // just hard code the two spins for now
+            let mut phi_m = WaveFunction::new(r_grid);
+            let mut phi_p = WaveFunction::new(r_grid);
+            // starting values for integration
+            phi_m.setup(h, l);
+            phi_p.setup(h, l);
 
-                // add centrifugal term
-                let re_l = ff.update_centrifugal(ff.re.as_slice(), l);
-                let re_j = ff.update_spin_orbit(re_l.as_slice(), l, ele);
+            // add centrifugal and spin_orbit term
+            let re_l = ff.update_centrifugal(ff.re.as_slice(), l);
+            let re_j_m = ff.update_spin_orbit(&re_l, l, -0.5);
+            let re_j_p = ff.update_spin_orbit(&re_l, l, 0.5);
 
-                // special case for l=1, see Melkanoff
-                if l as i32 == 1 {
-                    phi.re[phi.start_idx - 1] = 2.0 / re_j[0];
-                }
-
-                integrate::fox_goodwin_coupled(
-                    h,
-                    re_j.as_slice(),
-                    ff.im.as_slice(),
-                    phi.re.as_mut_slice(),
-                    phi.im.as_mut_slice(),
-                    phi.start_idx,
-                );
-
-                // values for matching using Psuedo-Wronskian
-
-                let phi_r = Complex::new(phi.re[r_idx], phi.im[r_idx]);
-                let phi_rh = Complex::new(phi.re[r_idx + 1], phi.im[r_idx + 1]);
-
-                // push to the vector
-                phase_shifts.push(matching::phase_shift(
-                    phi_r, phi_rh, rho_r, rho_rh, ff.eta, l,
-                ));
+            // special case for l=1, see Melkanoff
+            if l as i32 == 1 {
+                phi_m.re[phi_m.start_idx - 1] = 2.0 / re_j_m[0];
+                phi_p.re[phi_p.start_idx - 1] = 2.0 / re_j_p[0];
             }
-            cross_section::spin_half_ampl(angles, phase_shifts[0], phase_shifts[1], l, ff.eta, ff.k)
+
+            integrate::fox_goodwin_coupled(
+                h,
+                re_j_m.as_slice(),
+                ff.im.as_slice(),
+                phi_m.re.as_mut_slice(),
+                phi_m.im.as_mut_slice(),
+                phi_m.start_idx,
+            );
+
+            integrate::fox_goodwin_coupled(
+                h,
+                re_j_p.as_slice(),
+                ff.im.as_slice(),
+                phi_p.re.as_mut_slice(),
+                phi_p.im.as_mut_slice(),
+                phi_p.start_idx,
+            );
+
+            // values for matching using Psuedo-Wronskian
+
+            let phi_r_m = Complex::new(phi_m.re[r_idx], phi_m.im[r_idx]);
+            let phi_rh_m = Complex::new(phi_m.re[r_idx + 1], phi_m.im[r_idx + 1]);
+
+            let phi_r_p = Complex::new(phi_p.re[r_idx], phi_p.im[r_idx]);
+            let phi_rh_p = Complex::new(phi_p.re[r_idx + 1], phi_p.im[r_idx + 1]);
+
+            // push to the vector
+            let ps_m = matching::phase_shift(phi_r_m, phi_rh_m, rho_r, rho_rh, ff.eta, l);
+            let ps_p = matching::phase_shift(phi_r_p, phi_rh_p, rho_r, rho_rh, ff.eta, l);
+            println!("{} {} {} {}", ps_m.re, ps_m.im, ps_p.re, ps_m.im);
+            cross_section::spin_half_ampl(angles, ps_m, ps_p, l, ff.eta, ff.k)
         })
         .collect();
 

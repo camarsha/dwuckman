@@ -47,18 +47,17 @@ pub fn centrifugal(x: &[f64], l: f64) -> Vec<f64> {
 pub fn spin_orbit(x: &[f64], V: f64, r: f64, a: f64, l: f64, s: f64, mu: f64) -> Vec<f64> {
     let mut result = vec![0.0; x.len()];
 
-    let j = l + s; // s is assumed to have a sign
+    let j = (l + s).abs(); // s is assumed to have a sign, j is always positive
     let j_term = j * (j + 1.0);
     let l_term = l * (l + 1.0);
-    let s_term = s.abs() * (s.abs() + 1.0); // s needs to be positive now
+    let s_term = s * (s + 1.0);
     let spin_term = (j_term - l_term - s_term) / 2.0;
     //scaling
     let c: f64 = -(2.0 * mu) / hbar.powi(2);
 
     for (i, &ele) in x.iter().enumerate() {
-        result[i] = 2.0 * spin_term * (V / ele * f64::exp((ele - r) / a))
-            / (1.0 + f64::exp((ele - r) / a)).powi(2)
-            * c;
+        result[i] = c * (8.0 * V) / (ele * a) * spin_term * (f64::exp((ele - r) / a))
+            / (1.0 + f64::exp((ele - r) / a)).powi(2);
     }
     result
 }
