@@ -1,7 +1,7 @@
 use crate::{
     cross_section, integrate, matching, potentials::FormFactor, wave_function::WaveFunction,
 };
-use num::Complex;
+use num::{complex::Complex64, Complex};
 use rayon::prelude::*;
 
 // Module to help reduce the length of the main loop
@@ -66,7 +66,7 @@ pub fn setup_form_factor(
     if V_so != 0.0 {
         ff.add_spin_orbit(V_so, r_so, a_so);
     }
-    ff.scale(k, mu);
+    ff.scale(mu, k);
 
     ff
 }
@@ -126,7 +126,7 @@ pub fn partial_waves_par(
             let phi_rh = Complex::new(phi.re[r_idx + 1], phi.im[r_idx + 1]);
 
             let phase_shift = matching::phase_shift(phi_r, phi_rh, rho_r, rho_rh, ff.eta, l);
-            cross_section::spin_zero_amp(angles, phase_shift, l, ff.eta, ff.k)
+            cross_section::spin_zero_amp(angles, phase_shift, l, ff.k, ff.eta)
         })
         .collect();
 
@@ -193,11 +193,10 @@ pub fn partial_waves(
         let phi_rh = Complex::new(phi.re[r_idx + 1], phi.im[r_idx + 1]);
 
         let phase_shift = matching::phase_shift(phi_r, phi_rh, rho_r, rho_rh, ff.eta, l);
-        println!("{} {}", phase_shift.re, phase_shift.im);
 
         total_ampl = total_ampl
             .iter()
-            .zip(cross_section::spin_zero_amp(angles, phase_shift, l, ff.eta, ff.k).into_iter())
+            .zip(cross_section::spin_zero_amp(angles, phase_shift, l, ff.k, ff.eta).into_iter())
             .map(|(x, y)| x + y)
             .collect();
     }
@@ -274,11 +273,21 @@ pub fn partial_waves_half_par(
             let phi_r_p = Complex::new(phi_p.re[r_idx], phi_p.im[r_idx]);
             let phi_rh_p = Complex::new(phi_p.re[r_idx + 1], phi_p.im[r_idx + 1]);
 
-            // push to the vector
-            let ps_m = matching::phase_shift(phi_r_m, phi_rh_m, rho_r, rho_rh, ff.eta, l);
+            // check for l=0 which only has j = 1/2
+            let ps_m = if l == 0.0 {
+                Complex::new(0.0, 0.0)
+            } else {
+                matching::phase_shift(phi_r_m, phi_rh_m, rho_r, rho_rh, ff.eta, l)
+            };
             let ps_p = matching::phase_shift(phi_r_p, phi_rh_p, rho_r, rho_rh, ff.eta, l);
-            println!("{} {} {} {}", ps_m.re, ps_m.im, ps_p.re, ps_m.im);
-            cross_section::spin_half_ampl(angles, ps_m, ps_p, l, ff.eta, ff.k)
+            // let s_m: Complex<f64> = (2.0_f64 * Complex::i() * ps_m).exp();
+            // let s_p: Complex<f64> = (2.0_f64 * Complex::i() * ps_p).exp();
+            // println!(
+            //     "l = {} / Minus = {} {} / Plus = {} {}",
+            //     l, s_m.re, s_m.im, s_p.re, s_p.im
+            // );
+
+            cross_section::spin_half_ampl(angles, ps_m, ps_p, l, ff.k, ff.eta)
         })
         .collect();
 
@@ -305,3 +314,100 @@ pub fn partial_waves_half_par(
 
     (a_total, b_total)
 }
+
+// // performs integration for spin one half projectiles
+// pub fn partial_waves_half(
+//     r_grid: &[f64],
+//     ff: FormFactor,
+//     angles: &[f64],
+//     num_l: i32,
+//     h: f64,
+// ) -> (Vec<Complex<f64>>, Vec<Complex<f64>>) {
+//     // check if there is spin-orbit, if not, just do the zero case
+//     if ff.V_so == 0.0 {
+//         let a_theta = partial_waves_par(r_grid, ff, angles, num_l, h);
+//         let b_theta = vec![Complex::new(0.0, 0.0); angles.len()];
+//         return (a_theta, b_theta);
+//     };
+
+//     // convert l values to f64 for calculations
+//     let ell: Vec<f64> = (0..num_l).map(|x| x as f64).collect();
+
+//     // the grid point match at
+//     let (r_idx, rho_r, rho_rh) = match_points(r_grid, ff.k);
+
+//     let mut a_total: Vec<Complex<f64>> = vec![Complex::new(0.0, 0.0); angles.len()];
+
+//     let mut b_total: Vec<Complex<f64>> = vec![Complex::new(0.0, 0.0); angles.len()];
+
+//     // parallel wave loop with spin up and down
+//     for l in ell.into_iter() {
+//         // just hard code the two spins for now
+//         let mut phi_m = WaveFunction::new(r_grid);
+//         let mut phi_p = WaveFunction::new(r_grid);
+//         // starting values for integration
+//         phi_m.setup(h, l);
+//         phi_p.setup(h, l);
+
+//         // add centrifugal and spin_orbit term
+//         let re_l = ff.update_centrifugal(ff.re.as_slice(), l);
+//         let re_j_m = ff.update_spin_orbit(&re_l, l, -0.5);
+//         let re_j_p = ff.update_spin_orbit(&re_l, l, 0.5);
+
+//         // special case for l=1, see Melkanoff
+//         if l as i32 == 1 {
+//             phi_m.re[phi_m.start_idx - 1] = 2.0 / re_j_m[0];
+//             phi_p.re[phi_p.start_idx - 1] = 2.0 / re_j_p[0];
+//         }
+
+//         integrate::fox_goodwin_coupled(
+//             h,
+//             re_j_m.as_slice(),
+//             ff.im.as_slice(),
+//             phi_m.re.as_mut_slice(),
+//             phi_m.im.as_mut_slice(),
+//             phi_m.start_idx,
+//         );
+
+//         integrate::fox_goodwin_coupled(
+//             h,
+//             re_j_p.as_slice(),
+//             ff.im.as_slice(),
+//             phi_p.re.as_mut_slice(),
+//             phi_p.im.as_mut_slice(),
+//             phi_p.start_idx,
+//         );
+
+//         // values for matching using Psuedo-Wronskian
+
+//         let phi_r_m = Complex::new(phi_m.re[r_idx], phi_m.im[r_idx]);
+//         let phi_rh_m = Complex::new(phi_m.re[r_idx + 1], phi_m.im[r_idx + 1]);
+
+//         let phi_r_p = Complex::new(phi_p.re[r_idx], phi_p.im[r_idx]);
+//         let phi_rh_p = Complex::new(phi_p.re[r_idx + 1], phi_p.im[r_idx + 1]);
+
+//         // check for l=0 which only has j = 1/2
+//         let ps_m = if l == 0.0 {
+//             Complex::new(0.0, 0.0)
+//         } else {
+//             matching::phase_shift(phi_r_m, phi_rh_m, rho_r, rho_rh, ff.eta, l)
+//         };
+//         let ps_p = matching::phase_shift(phi_r_p, phi_rh_p, rho_r, rho_rh, ff.eta, l);
+//         let s_m: Complex<f64> = (2.0_f64 * Complex::i() * ps_m).exp();
+//         let s_p: Complex<f64> = (2.0_f64 * Complex::i() * ps_p).exp();
+//         println!(
+//             "l = {} / Minus = {} {} / Plus = {} {}",
+//             l, s_m.re, s_m.im, s_p.re, s_p.im
+//         );
+
+//         let (temp_a, temp_b): (Vec<Complex<f64>>, Vec<Complex<f64>>) =
+//             cross_section::spin_half_ampl(angles, ps_m, ps_p, l, ff.k, ff.eta);
+
+//         for i in 0..angles.len() {
+//             a_total[i] += temp_a[i];
+//             b_total[i] += temp_b[i];
+//         }
+//     }
+
+//     (a_total, b_total)
+// }

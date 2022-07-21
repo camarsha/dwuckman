@@ -17,7 +17,7 @@ fn deg_to_rad(angles: &[f64]) -> Vec<f64> {
         .into_iter()
         .map(|&x| {
             let y: f64 = if x < 1e-4 {
-                1e-4 * PI / 180.0 // 1e-4 is the smallest angle we will consider
+                1e-2 * PI / 180.0 // 1e-4 is the smallest angle we will consider
             } else {
                 x * PI / 180.0
             };
@@ -121,7 +121,7 @@ fn spin_zero(
     // cross section in mb
     let sigma: Vec<f64> =
         cross_section::diff_cross_section(angles.as_slice(), total_ampl.as_slice(), k, eta);
-    let ruth: Vec<f64> = cross_section::rutherford_cs(angles.as_slice(), eta, k);
+    let ruth: Vec<f64> = cross_section::rutherford_cs(angles.as_slice(), k, eta);
     (sigma, ruth)
 }
 
@@ -223,7 +223,7 @@ fn spin_half(
     // cross section in mb
     //    let sigma: Vec<f64> =
     let (sigma, pol) = cross_section::all_observables(&angles, &a_theta, &b_theta, k, eta);
-    let ruth: Vec<f64> = cross_section::rutherford_cs(&angles, eta, k);
+    let ruth: Vec<f64> = cross_section::rutherford_cs(&angles, k, eta);
     (sigma, pol, ruth)
 }
 

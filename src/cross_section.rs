@@ -29,9 +29,9 @@ pub fn coulomb_ampl(angles: &[f64], k: f64, eta: f64) -> Vec<Complex<f64>> {
     f
 }
 
-pub fn rutherford_cs(angles: &[f64], eta: f64, k: f64) -> Vec<f64> {
+pub fn rutherford_cs(angles: &[f64], k: f64, eta: f64) -> Vec<f64> {
     // Calculate the Rutherford differential cross section in mb/sr
-    let f: Vec<Complex<f64>> = coulomb_ampl(angles, eta, k);
+    let f: Vec<Complex<f64>> = coulomb_ampl(angles, k, eta);
     let ruth: Vec<f64> = f.iter().map(|x| 10.0 * x.norm_sqr()).collect();
     ruth
 }
@@ -43,8 +43,8 @@ pub fn spin_zero_amp(
     angles: &[f64],
     phase_shift: Complex<f64>,
     l: f64,
-    eta: f64,
     k: f64,
+    eta: f64,
 ) -> Vec<Complex<f64>> {
     let coul_ps: f64 = coulomb_phase_shift(l, eta); //coulomb phase shift
     let coul_term: Complex<f64> = (2.0 * coul_ps * Complex::i()).exp();
@@ -64,8 +64,8 @@ pub fn spin_half_ampl(
     phase_shift_minus: Complex<f64>,
     phase_shift_plus: Complex<f64>,
     l: f64,
-    eta: f64,
     k: f64,
+    eta: f64,
 ) -> (Vec<Complex<f64>>, Vec<Complex<f64>>) {
     let coul_ps: f64 = coulomb_phase_shift(l, eta); //coulomb phase shift
     let coul_term: Complex<f64> = (2.0 * coul_ps * Complex::i()).exp();
@@ -80,7 +80,7 @@ pub fn spin_half_ampl(
     let pl_1: Vec<f64> = if l > 0.0 {
         angles
             .iter()
-            .map(|x| 1.0 / k * legendre_Plm(int_l, 1, f64::cos(*x)))
+            .map(|x| -1.0 / k * legendre_Plm(int_l, 1, f64::cos(*x)))
             .collect()
     } else {
         vec![0.0; angles.len()]
@@ -99,7 +99,7 @@ pub fn spin_half_ampl(
 
     let b_theta: Vec<Complex<f64>> = pl_1
         .iter()
-        .map(|x| Complex::i() * *x * coul_term * (c_plus - c_minus))
+        .map(|x| *x * Complex::i() * coul_term * (c_plus - c_minus))
         .collect();
 
     (a_theta, b_theta)
@@ -128,7 +128,7 @@ pub fn all_observables(
     eta: f64,
 ) -> (Vec<f64>, Vec<f64>) {
     // Coulomb part
-    let f_coul = coulomb_ampl(angles, eta, k);
+    let f_coul = coulomb_ampl(angles, k, eta);
     // A(theta) has the nuclear + coulomb part
     let a_nuc_coul: Vec<Complex<f64>> = a_nuc
         .iter()
@@ -150,7 +150,7 @@ pub fn all_observables(
         .map(|((&a, &b), &denom)| {
             let term1 = a.conj() * b;
             let term2 = a * b.conj();
-            (term1 + term2).re / denom
+            (term1 + term2).re / (denom / 10.0)
         })
         .collect();
     (cs, anal_power)

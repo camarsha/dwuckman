@@ -44,20 +44,32 @@ pub fn centrifugal(x: &[f64], l: f64) -> Vec<f64> {
     result
 }
 
-pub fn spin_orbit(x: &[f64], V: f64, r: f64, a: f64, l: f64, s: f64, mu: f64) -> Vec<f64> {
+pub fn spin_orbit(x: &[f64], l: f64, s: f64, V: f64, r: f64, a: f64, mu: f64) -> Vec<f64> {
+    /* the spin orbit term is a bit convoluted, it is a derivative(surface) Woods-Saxon,
+    which unlike the form of the imaginary surface term, does not cancel the a term. So
+    we have:
+
+    V_so(r) = 2.0 * 1/r * 1/a * V * df/dr(r) * [j(j+1) - l(l+1) - s(s+1)]
+                                                     ^^^ Note this is 2 * LS
+
+    So you pick up a negative from the df/dr term. This gives the potential the same sign (i.e attractive)
+    as the others. Various authors play games with the negative sign, but I think it always comes out (-)
+    like the other potentials.
+
+    */
     let mut result = vec![0.0; x.len()];
 
-    let j = (l + s).abs(); // s is assumed to have a sign, j is always positive
+    let j = l + s; // s is assumed to have a sign, j is always positive
+    let s = s.abs(); // now s is positive
     let j_term = j * (j + 1.0);
     let l_term = l * (l + 1.0);
     let s_term = s * (s + 1.0);
-    let spin_term = (j_term - l_term - s_term) / 2.0;
-    //scaling
-    let c: f64 = -(2.0 * mu) / hbar.powi(2);
+    let spin_term = j_term - l_term - s_term; // FRESCO convention of 2Ls.
+    let c: f64 = -(2.0 * mu) / hbar.powi(2); //scaling
 
     for (i, &ele) in x.iter().enumerate() {
-        result[i] = c * (8.0 * V) / (ele * a) * spin_term * (f64::exp((ele - r) / a))
-            / (1.0 + f64::exp((ele - r) / a)).powi(2);
+        result[i] = c * (2.0 * V) / (ele * a) * spin_term * (f64::exp((ele - r) / a))
+            / ((1.0 + f64::exp((ele - r) / a)).powi(2));
     }
     result
 }
@@ -128,13 +140,13 @@ impl FormFactor {
         self.a_so = a;
     }
 
-    pub fn scale(&mut self, k: f64, mu: f64) {
+    pub fn scale(&mut self, mu: f64, k: f64) {
         // apply the proper scaling to the l-independent parts
         let c: f64 = -(2.0 * mu) / hbar.powi(2);
 
         for i in 0..self.re.len() {
             self.re[i] = -k.powi(2) - self.re[i] * c;
-            self.im[i] = -c * self.im[i];
+            self.im[i] *= -c;
         }
     }
 
@@ -157,7 +169,6 @@ impl FormFactor {
             self.mu,
         );
         for i in 0..temp.len() {
-            // need to properly scale this as well
             temp[i] += re[i];
         }
         temp

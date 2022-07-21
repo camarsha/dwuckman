@@ -45,7 +45,6 @@ pub fn fox_goodwin_coupled(
 
     let end = phi_r.len();
     let start = start_idx + 1;
-
     for i in start..end {
         ar3 = 1.0 - q_r[i] * g;
         ar2 = 1.0 - q_r[i - 1] * g;
