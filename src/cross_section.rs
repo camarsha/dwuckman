@@ -80,7 +80,7 @@ pub fn spin_half_ampl(
     let pl_1: Vec<f64> = if l > 0.0 {
         angles
             .iter()
-            .map(|x| -1.0 / k * legendre_Plm(int_l, 1, f64::cos(*x)))
+            .map(|x| -1.0 / k * legendre_Plm(int_l, 1, f64::cos(*x))) // TO DO: Check the phase convention
             .collect()
     } else {
         vec![0.0; angles.len()]
@@ -143,6 +143,8 @@ pub fn all_observables(
         .map(|(&a, &b)| 10.0 * (a.norm_sqr() + b.norm_sqr()))
         .collect();
     // (A*)B + A (B*) / |A|^2 + |B|^2, and I know exactly what I did
+    // I am still trying to confirm, but I think A_y = sqrt(2) * iT11
+    // Eq. 3.15, Polarization Phenomena in Physics.
     let anal_power: Vec<f64> = a_nuc_coul
         .iter()
         .zip(b_nuc.iter())
