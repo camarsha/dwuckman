@@ -6,11 +6,13 @@ stage.
 
 ## To Do
 
-1) Spin Orbit
+1) Confirmation of cross sections over a broader range of energies/masses/etc.
 
-2) Validate Cross Sections
+2) Test for convergence to stop partial wave loop (might be difficult with parallel implementaton).
 
-3) Spin 1/2 projectiles
+3) Refactor the code a bit so that phase shifts are the output of the main l-loop. Implement total cross sections.
 
-4) Analyzing powers and Total Cross Sections
+4) Test for neutrons
+
+5) Probably need to implement COULFG to replace the gsl library coulomb functions, which have known issues.
 
