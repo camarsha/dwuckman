@@ -16,3 +16,4 @@ stage.
 
 5) Probably need to implement COULFG to replace the gsl library coulomb functions, which have known issues.
 
+Test
