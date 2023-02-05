@@ -1,10 +1,18 @@
 use crate::{
-    cross_section, integrate, matching, potentials::FormFactor, wave_function::WaveFunction,
+    cross_section, integrate,
+    matching::{self, PhaseShift},
+    potentials::FormFactor,
+    wave_function::WaveFunction,
 };
 use num::{complex::Complex64, Complex};
 use rayon::prelude::*;
+use std::cmp::Ordering;
 
 // Module to help reduce the length of the main loop
+#[inline(always)]
+pub fn s_matrix(phase_shift: Complex<f64>) -> Complex<f64> {
+    (2.0_f64 * Complex::i() * phase_shift).exp()
+}
 
 pub fn setup_grid(r_match: f64, h: f64) -> Vec<f64> {
     /*
@@ -80,240 +88,240 @@ pub fn match_points(r_grid: &[f64], k: f64) -> (usize, f64, f64) {
 }
 
 /// performs integration and returns the total scattering amplitudes, loop is parallel
-pub fn partial_waves_par(
-    r_grid: &[f64],
-    ff: FormFactor,
-    angles: &[f64],
-    num_l: i32,
-    h: f64,
-) -> Vec<Complex<f64>> {
-    // convert l values to f64 for calculations
-    let ell: Vec<f64> = (0..num_l).map(|x| x as f64).collect();
+// pub fn partial_waves_par(
+//     r_grid: &[f64],
+//     ff: FormFactor,
+//     angles: &[f64],
+//     num_l: i32,
+//     h: f64,
+// ) -> Vec<Complex<f64>> {
+//     // convert l values to f64 for calculations
+//     let ell: Vec<f64> = (0..num_l).map(|x| x as f64).collect();
 
-    // the grid point match at
-    let (r_idx, rho_r, rho_rh) = match_points(r_grid, ff.k);
+//     // the grid point match at
+//     let (r_idx, rho_r, rho_rh) = match_points(r_grid, ff.k);
 
-    // parallel partial wave loop
-    let ell_ampl: Vec<Vec<Complex<f64>>> = ell
-        .into_par_iter()
-        .map(|l| {
-            // create wave function
-            let mut phi = WaveFunction::new(r_grid);
+//     // parallel partial wave loop
+//     let ell_ampl: Vec<Vec<Complex<f64>>> = ell
+//         .into_par_iter()
+//         .map(|l| {
+//             // create wave function
+//             let mut phi = WaveFunction::new(r_grid);
 
-            // starting values for integration
-            phi.setup(h, l);
+//             // starting values for integration
+//             phi.setup(h, l);
 
-            // add centrifugal term
-            let re_l = ff.update_centrifugal(ff.re.as_slice(), l);
+//             // add centrifugal term
+//             let re_l = ff.update_centrifugal(ff.re.as_slice(), l);
 
-            // special case for l=1, see Melkanoff
-            if l as i32 == 1 {
-                phi.re[phi.start_idx - 1] = 2.0 / re_l[0];
-            }
+//             // special case for l=1, see Melkanoff
+//             if l as i32 == 1 {
+//                 phi.re[phi.start_idx - 1] = 2.0 / re_l[0];
+//             }
 
-            integrate::fox_goodwin_coupled(
-                h,
-                re_l.as_slice(),
-                ff.im.as_slice(),
-                phi.re.as_mut_slice(),
-                phi.im.as_mut_slice(),
-                phi.start_idx,
-            );
+//             integrate::fox_goodwin_coupled(
+//                 h,
+//                 re_l.as_slice(),
+//                 ff.im.as_slice(),
+//                 phi.re.as_mut_slice(),
+//                 phi.im.as_mut_slice(),
+//                 phi.start_idx,
+//             );
 
-            // values for matching using Psuedo-Wronskian
+//             // values for matching using Psuedo-Wronskian
 
-            let phi_r = Complex::new(phi.re[r_idx], phi.im[r_idx]);
-            let phi_rh = Complex::new(phi.re[r_idx + 1], phi.im[r_idx + 1]);
+//             let phi_r = Complex::new(phi.re[r_idx], phi.im[r_idx]);
+//             let phi_rh = Complex::new(phi.re[r_idx + 1], phi.im[r_idx + 1]);
 
-            let phase_shift = matching::phase_shift(phi_r, phi_rh, rho_r, rho_rh, ff.eta, l);
-            cross_section::spin_zero_amp(angles, phase_shift, l, ff.k, ff.eta)
-        })
-        .collect();
+//             let phase_shift = matching::phase_shift(phi_r, phi_rh, rho_r, rho_rh, ff.eta, l);
+//             cross_section::spin_zero_amp(angles, phase_shift, l, ff.k, ff.eta)
+//         })
+//         .collect();
 
-    // implementation needs work
-    let mut total_ampl: Vec<Complex<f64>> = vec![Complex::new(0.0, 0.0); angles.len()];
+//     // implementation needs work
+//     let mut total_ampl: Vec<Complex<f64>> = vec![Complex::new(0.0, 0.0); angles.len()];
 
-    // sum across the ell components
-    for ele in ell_ampl.iter() {
-        total_ampl = total_ampl
-            .iter()
-            .zip(ele.iter())
-            .map(|(&x, &y)| x + y)
-            .collect();
-    }
+//     // sum across the ell components
+//     for ele in ell_ampl.iter() {
+//         total_ampl = total_ampl
+//             .iter()
+//             .zip(ele.iter())
+//             .map(|(&x, &y)| x + y)
+//             .collect();
+//     }
 
-    total_ampl
-}
+//     total_ampl
+// }
 
-/// performs integration and returns the total scattering amplitudes
-pub fn partial_waves(
-    r_grid: &[f64],
-    ff: FormFactor,
-    angles: &[f64],
-    num_l: i32,
-    h: f64,
-) -> Vec<Complex<f64>> {
-    // convert l values to f64 for calculations
-    let ell: Vec<f64> = (0..num_l).map(|x| x as f64).collect();
+// /// performs integration and returns the total scattering amplitudes
+// pub fn partial_waves(
+//     r_grid: &[f64],
+//     ff: FormFactor,
+//     angles: &[f64],
+//     num_l: i32,
+//     h: f64,
+// ) -> Vec<Complex<f64>> {
+//     // convert l values to f64 for calculations
+//     let ell: Vec<f64> = (0..num_l).map(|x| x as f64).collect();
 
-    // the grid point match at
-    let (r_idx, rho_r, rho_rh) = match_points(r_grid, ff.k);
+//     // the grid point match at
+//     let (r_idx, rho_r, rho_rh) = match_points(r_grid, ff.k);
 
-    let mut total_ampl: Vec<Complex<f64>> = vec![Complex::new(0.0, 0.0); angles.len()];
+//     let mut total_ampl: Vec<Complex<f64>> = vec![Complex::new(0.0, 0.0); angles.len()];
 
-    // parallel partial wave loop
-    for l in ell.into_iter() {
-        // create wave function
-        let mut phi = WaveFunction::new(r_grid);
+//     // parallel partial wave loop
+//     for l in ell.into_iter() {
+//         // create wave function
+//         let mut phi = WaveFunction::new(r_grid);
 
-        // starting values for integration
-        phi.setup(h, l);
+//         // starting values for integration
+//         phi.setup(h, l);
 
-        // add centrifugal term, changed to make it more clear, old way worked
-        // due to different scope of the for loop
-        let re_l = ff.update_centrifugal(ff.re.as_slice(), l);
+//         // add centrifugal term, changed to make it more clear, old way worked
+//         // due to different scope of the for loop
+//         let re_l = ff.update_centrifugal(ff.re.as_slice(), l);
 
-        // special case for l=1, see Melkanoff
-        if l as i32 == 1 {
-            phi.re[phi.start_idx - 1] = 2.0 / re_l[0];
-        }
+//         // special case for l=1, see Melkanoff
+//         if l as i32 == 1 {
+//             phi.re[phi.start_idx - 1] = 2.0 / re_l[0];
+//         }
 
-        integrate::fox_goodwin_coupled(
-            h,
-            re_l.as_slice(),
-            ff.im.as_slice(),
-            phi.re.as_mut_slice(),
-            phi.im.as_mut_slice(),
-            phi.start_idx,
-        );
+//         integrate::fox_goodwin_coupled(
+//             h,
+//             re_l.as_slice(),
+//             ff.im.as_slice(),
+//             phi.re.as_mut_slice(),
+//             phi.im.as_mut_slice(),
+//             phi.start_idx,
+//         );
 
-        // values for matching using Psuedo-Wronskian
+//         // values for matching using Psuedo-Wronskian
 
-        let phi_r = Complex::new(phi.re[r_idx], phi.im[r_idx]);
-        let phi_rh = Complex::new(phi.re[r_idx + 1], phi.im[r_idx + 1]);
+//         let phi_r = Complex::new(phi.re[r_idx], phi.im[r_idx]);
+//         let phi_rh = Complex::new(phi.re[r_idx + 1], phi.im[r_idx + 1]);
 
-        let phase_shift = matching::phase_shift(phi_r, phi_rh, rho_r, rho_rh, ff.eta, l);
+//         let phase_shift = matching::phase_shift(phi_r, phi_rh, rho_r, rho_rh, ff.eta, l);
 
-        total_ampl = total_ampl
-            .iter()
-            .zip(cross_section::spin_zero_amp(angles, phase_shift, l, ff.k, ff.eta).into_iter())
-            .map(|(x, y)| x + y)
-            .collect();
-    }
+//         total_ampl = total_ampl
+//             .iter()
+//             .zip(cross_section::spin_zero_amp(angles, phase_shift, l, ff.k, ff.eta).into_iter())
+//             .map(|(x, y)| x + y)
+//             .collect();
+//     }
 
-    total_ampl
-}
+//     total_ampl
+// }
 
-// performs integration for spin one half projectiles
-pub fn partial_waves_half_par(
-    r_grid: &[f64],
-    ff: FormFactor,
-    angles: &[f64],
-    num_l: i32,
-    h: f64,
-) -> (Vec<Complex<f64>>, Vec<Complex<f64>>) {
-    // check if there is spin-orbit, if not, just do the zero case
-    if ff.V_so == 0.0 {
-        let a_theta = partial_waves_par(r_grid, ff, angles, num_l, h);
-        let b_theta = vec![Complex::new(0.0, 0.0); angles.len()];
-        return (a_theta, b_theta);
-    };
+// // performs integration for spin one half projectiles
+// pub fn partial_waves_half_par(
+//     r_grid: &[f64],
+//     ff: FormFactor,
+//     angles: &[f64],
+//     num_l: i32,
+//     h: f64,
+// ) -> (Vec<Complex<f64>>, Vec<Complex<f64>>) {
+//     // check if there is spin-orbit, if not, just do the zero case
+//     if ff.V_so == 0.0 {
+//         let a_theta = partial_waves_par(r_grid, ff, angles, num_l, h);
+//         let b_theta = vec![Complex::new(0.0, 0.0); angles.len()];
+//         return (a_theta, b_theta);
+//     };
 
-    // convert l values to f64 for calculations
-    let ell: Vec<f64> = (0..num_l).map(|x| x as f64).collect();
+//     // convert l values to f64 for calculations
+//     let ell: Vec<f64> = (0..num_l).map(|x| x as f64).collect();
 
-    // the grid point match at
-    let (r_idx, rho_r, rho_rh) = match_points(r_grid, ff.k);
+//     // the grid point match at
+//     let (r_idx, rho_r, rho_rh) = match_points(r_grid, ff.k);
 
-    // parallel wave loop with spin up and down
-    let (a_vec, b_vec): (Vec<Vec<Complex<f64>>>, Vec<Vec<Complex<f64>>>) = ell
-        .into_par_iter()
-        .map(|l| {
-            // just hard code the two spins for now
-            let mut phi_m = WaveFunction::new(r_grid);
-            let mut phi_p = WaveFunction::new(r_grid);
-            // starting values for integration
-            phi_m.setup(h, l);
-            phi_p.setup(h, l);
+//     // parallel wave loop with spin up and down
+//     let (a_vec, b_vec): (Vec<Vec<Complex<f64>>>, Vec<Vec<Complex<f64>>>) = ell
+//         .into_par_iter()
+//         .map(|l| {
+//             // just hard code the two spins for now
+//             let mut phi_m = WaveFunction::new(r_grid);
+//             let mut phi_p = WaveFunction::new(r_grid);
+//             // starting values for integration
+//             phi_m.setup(h, l);
+//             phi_p.setup(h, l);
 
-            // add centrifugal and spin_orbit term
-            let re_l = ff.update_centrifugal(ff.re.as_slice(), l);
-            let re_j_m = ff.update_spin_orbit(&re_l, l, -0.5);
-            let re_j_p = ff.update_spin_orbit(&re_l, l, 0.5);
+//             // add centrifugal and spin_orbit term
+//             let re_l = ff.update_centrifugal(ff.re.as_slice(), l);
+//             let re_j_m = ff.update_spin_orbit(&re_l, l, -0.5);
+//             let re_j_p = ff.update_spin_orbit(&re_l, l, 0.5);
 
-            // special case for l=1, see Melkanoff
-            if l as i32 == 1 {
-                phi_m.re[phi_m.start_idx - 1] = 2.0 / re_j_m[0];
-                phi_p.re[phi_p.start_idx - 1] = 2.0 / re_j_p[0];
-            }
+//             // special case for l=1, see Melkanoff
+//             if l as i32 == 1 {
+//                 phi_m.re[phi_m.start_idx - 1] = 2.0 / re_j_m[0];
+//                 phi_p.re[phi_p.start_idx - 1] = 2.0 / re_j_p[0];
+//             }
 
-            integrate::fox_goodwin_coupled(
-                h,
-                re_j_m.as_slice(),
-                ff.im.as_slice(),
-                phi_m.re.as_mut_slice(),
-                phi_m.im.as_mut_slice(),
-                phi_m.start_idx,
-            );
+//             integrate::fox_goodwin_coupled(
+//                 h,
+//                 re_j_m.as_slice(),
+//                 ff.im.as_slice(),
+//                 phi_m.re.as_mut_slice(),
+//                 phi_m.im.as_mut_slice(),
+//                 phi_m.start_idx,
+//             );
 
-            integrate::fox_goodwin_coupled(
-                h,
-                re_j_p.as_slice(),
-                ff.im.as_slice(),
-                phi_p.re.as_mut_slice(),
-                phi_p.im.as_mut_slice(),
-                phi_p.start_idx,
-            );
+//             integrate::fox_goodwin_coupled(
+//                 h,
+//                 re_j_p.as_slice(),
+//                 ff.im.as_slice(),
+//                 phi_p.re.as_mut_slice(),
+//                 phi_p.im.as_mut_slice(),
+//                 phi_p.start_idx,
+//             );
 
-            // values for matching using Psuedo-Wronskian
+//             // values for matching using Psuedo-Wronskian
 
-            let phi_r_m = Complex::new(phi_m.re[r_idx], phi_m.im[r_idx]);
-            let phi_rh_m = Complex::new(phi_m.re[r_idx + 1], phi_m.im[r_idx + 1]);
+//             let phi_r_m = Complex::new(phi_m.re[r_idx], phi_m.im[r_idx]);
+//             let phi_rh_m = Complex::new(phi_m.re[r_idx + 1], phi_m.im[r_idx + 1]);
 
-            let phi_r_p = Complex::new(phi_p.re[r_idx], phi_p.im[r_idx]);
-            let phi_rh_p = Complex::new(phi_p.re[r_idx + 1], phi_p.im[r_idx + 1]);
+//             let phi_r_p = Complex::new(phi_p.re[r_idx], phi_p.im[r_idx]);
+//             let phi_rh_p = Complex::new(phi_p.re[r_idx + 1], phi_p.im[r_idx + 1]);
 
-            // check for l=0 which only has j = 1/2
-            let ps_m = if l == 0.0 {
-                Complex::new(0.0, 0.0)
-            } else {
-                matching::phase_shift(phi_r_m, phi_rh_m, rho_r, rho_rh, ff.eta, l)
-            };
-            let ps_p = matching::phase_shift(phi_r_p, phi_rh_p, rho_r, rho_rh, ff.eta, l);
-            // let s_m: Complex<f64> = (2.0_f64 * Complex::i() * ps_m).exp();
-            // let s_p: Complex<f64> = (2.0_f64 * Complex::i() * ps_p).exp();
-            // println!(
-            //     "l = {} / Minus = {} {} / Plus = {} {}",
-            //     l, s_m.re, s_m.im, s_p.re, s_p.im
-            // );
+//             // check for l=0 which only has j = 1/2
+//             let ps_m = if l == 0.0 {
+//                 Complex::new(0.0, 0.0)
+//             } else {
+//                 matching::phase_shift(phi_r_m, phi_rh_m, rho_r, rho_rh, ff.eta, l)
+//             };
+//             let ps_p = matching::phase_shift(phi_r_p, phi_rh_p, rho_r, rho_rh, ff.eta, l);
+//             // let s_m: Complex<f64> = (2.0_f64 * Complex::i() * ps_m).exp();
+//             // let s_p: Complex<f64> = (2.0_f64 * Complex::i() * ps_p).exp();
+//             // println!(
+//             //     "l = {} / Minus = {} {} / Plus = {} {}",
+//             //     l, s_m.re, s_m.im, s_p.re, s_p.im
+//             // );
 
-            cross_section::spin_half_ampl(angles, ps_m, ps_p, l, ff.k, ff.eta)
-        })
-        .collect();
+//             cross_section::spin_half_ampl(angles, ps_m, ps_p, l, ff.k, ff.eta)
+//         })
+//         .collect();
 
-    // implementation needs work
-    let mut a_total: Vec<Complex<f64>> = vec![Complex::new(0.0, 0.0); angles.len()];
-    let mut b_total: Vec<Complex<f64>> = vec![Complex::new(0.0, 0.0); angles.len()];
+//     // implementation needs work
+//     let mut a_total: Vec<Complex<f64>> = vec![Complex::new(0.0, 0.0); angles.len()];
+//     let mut b_total: Vec<Complex<f64>> = vec![Complex::new(0.0, 0.0); angles.len()];
 
-    // sums for a and b
-    for ele in a_vec {
-        a_total = a_total
-            .iter()
-            .zip(ele.iter())
-            .map(|(&x, &y)| x + y)
-            .collect();
-    }
+//     // sums for a and b
+//     for ele in a_vec {
+//         a_total = a_total
+//             .iter()
+//             .zip(ele.iter())
+//             .map(|(&x, &y)| x + y)
+//             .collect();
+//     }
 
-    for ele in b_vec {
-        b_total = b_total
-            .iter()
-            .zip(ele.iter())
-            .map(|(&x, &y)| x + y)
-            .collect();
-    }
+//     for ele in b_vec {
+//         b_total = b_total
+//             .iter()
+//             .zip(ele.iter())
+//             .map(|(&x, &y)| x + y)
+//             .collect();
+//     }
 
-    (a_total, b_total)
-}
+//     (a_total, b_total)
+// }
 
 // // performs integration for spin one half projectiles
 // pub fn partial_waves_half(
@@ -411,3 +419,77 @@ pub fn partial_waves_half_par(
 
 //     (a_total, b_total)
 // }
+
+/// Takes a complex vector of phase shits and checks for non-convergence
+
+/* Given a vector of PhaseShift structs that are already ordered according to
+l_i > l_{i - 1}, return a new vector that only has the strictly increasing
+real S-matrix values.
+ */
+fn sort_by_l_value(phase_shifts: &[matching::PhaseShift]) -> Vec<matching::PhaseShift> {
+    let mut stop_l: usize = phase_shifts.len();
+    for (i, &ele) in phase_shifts.iter().enumerate() {
+        // This is an arbitrary decision right now, allow some oscillation in the beginning
+        println!("{}", s_matrix(ele.val).re);
+        if i > 10 {
+            if s_matrix(ele.val).re < s_matrix(phase_shifts[i - 1].val).re {
+                stop_l = i;
+                break;
+            }
+        }
+    }
+    phase_shifts[..stop_l].to_vec()
+}
+
+pub fn calc_phase_shifts(r_grid: &[f64], ff: FormFactor, num_l: i32, h: f64) -> Vec<PhaseShift> {
+    // convert l values to f64 for calculations
+    let ell: Vec<f64> = (0..num_l).map(|x| x as f64).collect();
+
+    // the grid point match at
+    let (r_idx, rho_r, rho_rh) = match_points(r_grid, ff.k);
+
+    //
+    let mut phase_shifts: Vec<matching::PhaseShift> = ell
+        .into_par_iter()
+        .map(|l| {
+            // create wave function
+            let mut phi = WaveFunction::new(r_grid);
+
+            // starting values for integration
+            phi.setup(h, l);
+
+            // add centrifugal term
+            let re_l = ff.update_centrifugal(ff.re.as_slice(), l);
+
+            // special case for l=1, see Melkanoff
+            if l as i32 == 1 {
+                phi.re[phi.start_idx - 1] = 2.0 / re_l[0];
+            }
+
+            integrate::fox_goodwin_coupled(
+                h,
+                re_l.as_slice(),
+                ff.im.as_slice(),
+                phi.re.as_mut_slice(),
+                phi.im.as_mut_slice(),
+                phi.start_idx,
+            );
+
+            // values for matching using Psuedo-Wronskian
+
+            let phi_r = Complex::new(phi.re[r_idx], phi.im[r_idx]);
+            let phi_rh = Complex::new(phi.re[r_idx + 1], phi.im[r_idx + 1]);
+
+            matching::phase_shift(phi_r, phi_rh, rho_r, rho_rh, ff.eta, l)
+        })
+        .collect();
+
+    // Now we check for convergence
+    // sort by l_values
+    println!("{:?}", phase_shifts);
+    phase_shifts.sort_by(|a, b| a.partial_cmp(&b).unwrap());
+    println!("{:?}", phase_shifts);
+    // // check for convergence based on real part of s-matrix.
+    phase_shifts = sort_by_l_value(phase_shifts.as_slice());
+    phase_shifts
+}
