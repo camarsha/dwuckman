@@ -5,6 +5,39 @@ use rgsl::{Result, Value};
 use std::cmp::Ordering;
 use std::f64::consts::E;
 
+/* We define all of the phase shift structs here. There is one for each supported spin value
+Each of them implements PartialEq and PartialOrd so that we can sort after the parallel partial wave loop.
+*/
+
+// we need to be able to sort values based on l, s, and j so we need to derive these traits
+#[derive(Debug, Clone, Copy)]
+pub struct PhaseShift {
+    pub val: Complex64,
+    pub l: f64,
+}
+
+impl PhaseShift {
+    pub fn new(val: Complex64, l: f64) -> Self {
+        PhaseShift { val, l }
+    }
+}
+
+impl PartialEq for PhaseShift {
+    fn eq(&self, other: &Self) -> bool {
+        self.l == other.l
+    }
+}
+
+impl PartialOrd for PhaseShift {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.l.partial_cmp(&other.l)
+    }
+}
+
+/*
+Now we have the functions that actual calculate the phase shifts
+*/
+
 pub fn coulomb_functions(rho: f64, eta: f64, l: f64) -> Vec<f64> {
     let mut exp_F = 0.0_f64;
     let mut exp_G = 0.0_f64;
@@ -20,42 +53,10 @@ pub fn coulomb_functions(rho: f64, eta: f64, l: f64) -> Vec<f64> {
         G.val = G.val * exp_G.powf(E);
         Fp.val = Fp.val * exp_F.powf(E);
         Gp.val = Gp.val * exp_F.powf(E);
-        println! {"Overflow in coulomb wave functions!"}
+        //        println! {"Overflow in coulomb wave functions!"}
     }
 
     vec![F.val, Fp.val, G.val, Gp.val]
-}
-
-// we need to be able to sort values based on l, s, and j so we need to derive these traits
-#[derive(Debug, Clone, Copy)]
-pub struct PhaseShift {
-    pub val: Complex64,
-    pub l: f64,
-    pub s: f64,
-    pub j: f64,
-}
-
-impl PhaseShift {
-    pub fn new(val: Complex64, l: f64) -> PhaseShift {
-        PhaseShift {
-            val,
-            l,
-            s: 0.0,
-            j: l,
-        }
-    }
-}
-
-impl PartialEq for PhaseShift {
-    fn eq(&self, other: &Self) -> bool {
-        self.l == other.l
-    }
-}
-
-impl PartialOrd for PhaseShift {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.l.partial_cmp(&other.l)
-    }
 }
 
 pub fn phase_shift(

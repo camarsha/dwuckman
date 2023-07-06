@@ -6,6 +6,7 @@ use crate::{
 };
 use num::{complex::Complex64, Complex};
 use rayon::prelude::*;
+//use core::slice::SlicePattern;
 use std::cmp::Ordering;
 
 // Module to help reduce the length of the main loop
@@ -426,17 +427,23 @@ pub fn match_points(r_grid: &[f64], k: f64) -> (usize, f64, f64) {
 l_i > l_{i - 1}, return a new vector that only has the strictly increasing
 real S-matrix values.
  */
-fn sort_by_l_value(phase_shifts: &[matching::PhaseShift]) -> Vec<matching::PhaseShift> {
+fn converged_values(phase_shifts: &[matching::PhaseShift]) -> Vec<matching::PhaseShift> {
     let mut stop_l: usize = phase_shifts.len();
+    let mut begin_check = false;
     for (i, &ele) in phase_shifts.iter().enumerate() {
-        // This is an arbitrary decision right now, allow some oscillation in the beginning
         println!("{}", s_matrix(ele.val).re);
-        if i > 10 {
-            if s_matrix(ele.val).re < s_matrix(phase_shifts[i - 1].val).re {
-                stop_l = i;
+        let re = s_matrix(ele.val).re;
+        if begin_check {
+            if (re < s_matrix(phase_shifts[i - 1].val).re) || (re > 1.0) {
+                stop_l = i; // stopping index is exclusive
                 break;
             }
         }
+        // We first wait until the phase shift crosses a threshold value of 0.99
+        // to start checking for convergence
+        if re > 0.99 {
+            begin_check = true
+        };
     }
     phase_shifts[..stop_l].to_vec()
 }
@@ -486,10 +493,8 @@ pub fn calc_phase_shifts(r_grid: &[f64], ff: FormFactor, num_l: i32, h: f64) -> 
 
     // Now we check for convergence
     // sort by l_values
-    println!("{:?}", phase_shifts);
     phase_shifts.sort_by(|a, b| a.partial_cmp(&b).unwrap());
-    println!("{:?}", phase_shifts);
-    // // check for convergence based on real part of s-matrix.
-    phase_shifts = sort_by_l_value(phase_shifts.as_slice());
-    phase_shifts
+    // check for convergence based on real part of s-matrix.
+    // then return the converged values only
+    converged_values(phase_shifts.as_slice())
 }

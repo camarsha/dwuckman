@@ -6,6 +6,7 @@ mod matching;
 mod potentials;
 mod wave_function;
 use constants::*;
+//use core::slice::SlicePattern;
 use num::complex::Complex;
 use potentials::FormFactor;
 use pyo3::prelude::*;
@@ -47,7 +48,7 @@ fn spin_zero(
     r_match: f64,
     dr: f64,
     par: bool,
-) -> Vec<matching::PhaseShift> {
+) -> (f64, Vec<f64>, Vec<f64>) {
     // reaction constants
 
     // convert to MeV
@@ -90,7 +91,18 @@ fn spin_zero(
     );
 
     // calculate the scattering amplitude note that ff will be moved
-    calculation::calc_phase_shifts(r_grid.as_slice(), ff, partial_waves, dr)
+    let ps = calculation::calc_phase_shifts(r_grid.as_slice(), ff, partial_waves, dr);
+    let mel_coeff = cross_section::melkanoff_coeff(ps.as_slice());
+    let tot_cs = cross_section::cross_section_spin_zero(ps.as_slice(), mel_coeff.as_slice(), k);
+    let diff_cs: Vec<f64> = cross_section::diff_cross_spin_zero(
+        angles.as_slice(),
+        ps.as_slice(),
+        mel_coeff.as_slice(),
+        k,
+        eta,
+    );
+    let ruth: Vec<f64> = cross_section::rutherford_cs(angles.as_slice(), k, eta);
+    (tot_cs, diff_cs, ruth)
 }
 
 fn main() {
@@ -99,7 +111,7 @@ fn main() {
     println!(
         "{:?}",
         spin_zero(
-            4.0, 4.0, 2.0, 12.0, 12.0, 6.0, 20.0, 140.0, 1.25, 0.65, 10.0, 1.15, 0.83, 1.35, 80,
+            4.0, 4.0, 2.0, 88.0, 88.0, 38.0, 40.0, 140.0, 1.25, 0.65, 10.0, 1.15, 0.83, 1.35, 80,
             angles, 40.0, 0.1, true,
         )
     )
