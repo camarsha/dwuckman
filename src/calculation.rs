@@ -431,10 +431,10 @@ fn converged_values(phase_shifts: &[matching::PhaseShift]) -> Vec<matching::Phas
     let mut stop_l: usize = phase_shifts.len();
     let mut begin_check = false;
     for (i, &ele) in phase_shifts.iter().enumerate() {
-        println!("{}", s_matrix(ele.val).re);
+        println!("{:?}", s_matrix(ele.val));
         let re = s_matrix(ele.val).re;
         if begin_check {
-            if (re < s_matrix(phase_shifts[i - 1].val).re) || (re > 1.0) {
+            if (re < s_matrix(phase_shifts[i - 1].val).re) || (re >= 1.0) {
                 stop_l = i; // stopping index is exclusive
                 break;
             }

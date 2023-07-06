@@ -17,7 +17,7 @@ pub fn fox_goodwin(h: f64, q: &[f64], phi: &mut [f64], start_idx: usize) {
         // check if renormalization is needed, taken from ECIS
         if f64::abs(phi[i]) > 1e15 {
             //and if so do it
-            for j in 0..i {
+            for j in (0..i + 1) {
                 phi[j] = phi[j] * 1e-30
             }
         };
@@ -68,7 +68,7 @@ pub fn fox_goodwin_coupled(
         // check if renormalization is needed
         if f64::abs(phi_r[i]) > 1e15 {
             //and if so do it
-            for j in 0..i {
+            for j in 0..(i + 1) {
                 phi_r[j] = phi_r[j] * 1e-30
             }
         }

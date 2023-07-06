@@ -11,6 +11,9 @@ use num::complex::Complex;
 use potentials::FormFactor;
 use pyo3::prelude::*;
 use std::f64::consts::PI;
+use std::fs::File;
+use std::io::BufWriter;
+use std::io::Write;
 
 fn deg_to_rad(angles: &[f64]) -> Vec<f64> {
     // check and convert angles
@@ -106,13 +109,36 @@ fn spin_zero(
 }
 
 fn main() {
-    let angles = (0..180).map(|x| x as f64).collect();
+    // output file
+    let mut out_file = BufWriter::new(File::create("calc.csv").unwrap());
+    writeln!(out_file, "theta,sigma,ruth,tot").unwrap();
 
-    println!(
-        "{:?}",
-        spin_zero(
-            4.0, 4.0, 2.0, 88.0, 88.0, 38.0, 40.0, 140.0, 1.25, 0.65, 10.0, 1.15, 0.83, 1.35, 80,
-            angles, 40.0, 0.1, true,
-        )
-    )
+    let angles: Vec<f64> = (0..180).map(|x| x as f64).collect();
+    //    let nangles: usize = angles.len();
+
+    let (tot, diff, ruth) = spin_zero(
+        4.0,
+        4.0,
+        2.0,
+        88.0,
+        88.0,
+        38.0,
+        40.0,
+        140.0,
+        1.25,
+        0.65,
+        10.0,
+        1.15,
+        0.83,
+        1.3,
+        100,
+        angles.clone(),
+        50.0,
+        0.001,
+        true,
+    );
+
+    for i in 0..angles.len() {
+        writeln!(out_file, "{},{},{},{}", angles[i], diff[i], ruth[i], tot).unwrap();
+    }
 }
