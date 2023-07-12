@@ -58,7 +58,7 @@ pub fn cross_section_spin_zero(
             .into_iter()
             .zip(phase_shifts.into_iter())
             .fold(0.0, |acc, (mc, ps)| {
-                acc + ((2.0 * ps.l) * (mc.im - mc.norm_sqr()))
+                acc + (((2.0 * ps.l) + 1.0) * (mc.im - mc.norm_sqr()))
             })
 }
 

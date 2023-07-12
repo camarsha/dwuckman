@@ -69,6 +69,8 @@ fn spin_zero(
     let k = f64::sqrt((2.0 * mu * energy_com) / hbar.powi(2));
     let eta = ((z1 * z2) * e2) * (mu / (hbar.powi(2) * k));
 
+    println!("k = {} ; eta = {}", k, eta);
+
     // check and convert angles
     let angles: Vec<f64> = deg_to_rad(&angles);
 
@@ -123,7 +125,7 @@ fn main() {
         88.0,
         88.0,
         38.0,
-        40.0,
+        21.0,
         140.0,
         1.25,
         0.65,
@@ -131,12 +133,14 @@ fn main() {
         1.15,
         0.83,
         1.3,
-        100,
+        40,
         angles.clone(),
         50.0,
-        0.001,
+        0.1,
         true,
     );
+
+    println!("Total Cross Section = {}", tot);
 
     for i in 0..angles.len() {
         writeln!(out_file, "{},{},{},{}", angles[i], diff[i], ruth[i], tot).unwrap();

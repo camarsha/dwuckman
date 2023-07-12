@@ -18,7 +18,7 @@ pub fn fox_goodwin(h: f64, q: &[f64], phi: &mut [f64], start_idx: usize) {
         if f64::abs(phi[i]) > 1e15 {
             //and if so do it
             for j in (0..i + 1) {
-                phi[j] = phi[j] * 1e-30
+                phi[j] *= 1e-30;
             }
         };
     }
@@ -69,7 +69,7 @@ pub fn fox_goodwin_coupled(
         if f64::abs(phi_r[i]) > 1e15 {
             //and if so do it
             for j in 0..(i + 1) {
-                phi_r[j] = phi_r[j] * 1e-30
+                phi_r[j] *= 1e-30;
             }
         }
     }
