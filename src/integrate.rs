@@ -17,13 +17,16 @@ pub fn fox_goodwin(h: f64, q: &[f64], phi: &mut [f64], start_idx: usize) {
         // check if renormalization is needed, taken from ECIS
         if f64::abs(phi[i]) > 1e15 {
             //and if so do it
-            for j in (0..i + 1) {
-                phi[j] *= 1e-30;
+            for j in 0..i {
+                phi[i] = phi[i] * 1e-30
             }
         };
     }
 }
 
+/// This solves Z'' = A * Z for Z and Z complex using Crowell-Fox-Goodwin method.
+/// The equation is Z_i = (12.0 - 10.0 * C_{i-1})Z_{i - 1} - C_{i-2}Z_{i-2} * C^{-1}_i.
+/// This is a matrix equation since both the potential and wave function are complex.
 pub fn fox_goodwin_coupled(
     h: f64,
     q_r: &[f64],
@@ -32,45 +35,40 @@ pub fn fox_goodwin_coupled(
     phi_i: &mut [f64],
     start_idx: usize,
 ) {
-    // Just plug in complex potentials and wave functions and follow
-    // mathematica blindly - Caleb Marshall, scholar
-
     let g = h.powi(2) / 12.0;
-
-    let (mut ar1, mut ar2, mut ar3) = (0.0, 0.0, 0.0);
-    let (mut ai1, mut ai2, mut ai3) = (0.0, 0.0, 0.0);
-    let (mut br, mut bi) = (0.0, 0.0);
-    let (mut cr, mut ci) = (0.0, 0.0);
-    let mut det = 0.0;
 
     let end = phi_r.len();
     let start = start_idx + 1;
     for i in start..end {
-        ar3 = 1.0 - q_r[i] * g;
-        ar2 = 1.0 - q_r[i - 1] * g;
-        ar1 = 1.0 - q_r[i - 2] * g;
+        // real terms in front of the wave function
+        let cr3 = 1.0 - q_r[i] * g;
+        let cr2 = 1.0 - q_r[i - 1] * g;
+        let cr1 = 1.0 - q_r[i - 2] * g;
 
-        ai3 = -q_i[i] * g;
-        ai2 = -q_i[i - 1] * g;
-        ai1 = -q_i[i - 2] * g;
+        // imaginary terms in front of the wave function.
+        let ci3 = -q_i[i] * g;
+        let ci2 = -q_i[i - 1] * g;
+        let ci1 = -q_i[i - 2] * g;
 
-        det = ar3.powi(2) + ai3.powi(2);
+        // for the i-1 terms we need the coefficent to be
+        // 2 + 5/6h^2 * A not 1 - 1/12h^2 * A, so this transformation
+        // gives us the right form.
+        let cr2 = 12.0 - 10.0 * cr2;
+        let ci2 = -10.0 * ci2;
 
-        br = 12.0 - 10.0 * ar2;
-        bi = -10.0 * ai2;
+        // These are the real and imaginary parts of the numerator.
+        // Basically just two sets of (cr + i ci ) * (phi_r + i phi_i).
+        let real =
+            cr2 * phi_r[i - 1] - ci2 * phi_i[i - 1] - cr1 * phi_r[i - 2] + ci1 * phi_i[i - 2];
+        let im = ci2 * phi_r[i - 1] + cr2 * phi_i[i - 1] - ci1 * phi_r[i - 2] - cr1 * phi_i[i - 2];
 
-        cr = br * phi_r[i - 1] - bi * phi_i[i - 1] - ar1 * phi_r[i - 2] + ai1 * phi_i[i - 2];
-        ci = bi * phi_r[i - 1] + br * phi_i[i - 1] - ai1 * phi_r[i - 2] - ar1 * phi_i[i - 2];
+        // to finish up we have one final matrix multiplication between the two terms above
+        // and the A^{-1}_i term on bottom.
+        let det = cr3.powi(2) + ci3.powi(2);
 
-        phi_r[i] = (cr * ar3 + ci * ai3) / det;
-        phi_i[i] = (ci * ar3 - cr * ai3) / det;
-
-        // check if renormalization is needed
-        if f64::abs(phi_r[i]) > 1e15 {
-            //and if so do it
-            for j in 0..(i + 1) {
-                phi_r[j] *= 1e-30;
-            }
-        }
+        // (cr3  ci3)   (Rl)   1/
+        // (-ci3 cr3) * (Im) * det
+        phi_r[i] = (real * cr3 + im * ci3) / det;
+        phi_i[i] = (im * cr3 - real * ci3) / det;
     }
 }

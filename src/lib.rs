@@ -14,7 +14,7 @@ use std::f64::consts::PI;
 fn deg_to_rad(angles: &[f64]) -> Vec<f64> {
     // check and convert angles
     let rad_angles: Vec<f64> = angles
-        .into_iter()
+        .iter()
         .map(|&x| {
             let y: f64 = if x < 1e-4 {
                 1e-2 * PI / 180.0 // 1e-4 is the smallest angle we will consider
@@ -48,12 +48,12 @@ fn deg_to_rad(angles: &[f64]) -> Vec<f64> {
 ///     r_match: f64,
 ///     dr: f64,
 /// ) -> (Vec<f64>, Vec<f64>)
+#[allow(non_snake_case)]
+#[allow(clippy::too_many_arguments)]
 #[pyfunction]
 fn spin_zero(
-    a1: f64,
     m1: f64,
     z1: f64,
-    a2: f64,
     m2: f64,
     z2: f64,
     energy_lab: f64,
@@ -63,31 +63,33 @@ fn spin_zero(
     W: f64,
     r_i: f64,
     a_i: f64,
+    W_s: f64,
+    r_s: f64,
+    a_s: f64,
     r_c: f64,
     partial_waves: i32,
     angles: Vec<f64>,
     r_match: f64,
     dr: f64,
-    par: bool,
 ) -> (f64, Vec<f64>, Vec<f64>) {
     // reaction constants
 
     // convert to MeV
-    let m1 = m1 * u_to_MeV;
-    let m2 = m2 * u_to_MeV;
+    let m1 = m1 * U_TO_MEV;
+    let m2_u = m2;
+    let m2 = m2 * U_TO_MEV;
 
     // Scale the radii
-    let a13 = a2.powf(1.0 / 3.0);
+    let a13 = m2_u.powf(1.0 / 3.0);
     let r = r * a13;
     let r_i = r_i * a13;
+    let r_s = r_s * a13;
     let r_c = r_c * a13;
 
     let energy_com = energy_lab * (m2 / (m1 + m2));
     let mu = (m1 * m2) / (m1 + m2);
-    let k = f64::sqrt((2.0 * mu * energy_com) / hbar.powi(2));
-    let eta = ((z1 * z2) * e2) * (mu / (hbar.powi(2) * k));
-
-    //println!("k = {} ; eta = {}", k, eta);
+    let k = f64::sqrt((2.0 * mu * energy_com) / HBAR.powi(2));
+    let eta = ((z1 * z2) * E2) * (mu / (HBAR.powi(2) * k));
 
     // check and convert angles
     let angles: Vec<f64> = deg_to_rad(&angles);
@@ -102,6 +104,9 @@ fn spin_zero(
         W,
         r_i,
         a_i,
+        W_s,
+        r_s,
+        a_s,
         0.0,
         0.0,
         0.0,

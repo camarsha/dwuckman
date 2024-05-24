@@ -1,7 +1,5 @@
 use num::complex::{Complex, Complex64};
-use rgsl::bessel::{jl, yl};
 use rgsl::coulomb::wave_FG_e;
-use rgsl::{Result, Value};
 use std::cmp::Ordering;
 use std::f64::consts::E;
 
@@ -37,11 +35,10 @@ impl PartialOrd for PhaseShift {
 /*
 Now we have the functions that actual calculate the phase shifts
 */
-
+#[allow(non_snake_case)]
 pub fn coulomb_functions(rho: f64, eta: f64, l: f64) -> Vec<f64> {
     let mut exp_F = 0.0_f64;
     let mut exp_G = 0.0_f64;
-    let mut overlow: Value = Value::OverFlow;
 
     // Get the coulomb functions at rho
     let (overflow, mut F, mut Fp, mut G, mut Gp) =
@@ -49,16 +46,20 @@ pub fn coulomb_functions(rho: f64, eta: f64, l: f64) -> Vec<f64> {
 
     // deal with potential overflow
     if !overflow.is_success() {
-        F.val = F.val * exp_F.powf(E);
-        G.val = G.val * exp_G.powf(E);
-        Fp.val = Fp.val * exp_F.powf(E);
-        Gp.val = Gp.val * exp_F.powf(E);
-        //        println! {"Overflow in coulomb wave functions!"}
+        println!(
+            "Overflow in coulomb wavefunctions: rho={:.3} eta={:.3} l={}",
+            rho, eta, l as i32
+        );
+        F.val *= exp_F.powf(E);
+        G.val *= exp_G.powf(E);
+        Fp.val *= exp_F.powf(E);
+        Gp.val *= exp_F.powf(E);
     }
 
     vec![F.val, Fp.val, G.val, Gp.val]
 }
 
+#[allow(non_snake_case)]
 pub fn phase_shift(
     phi_R: Complex64,
     phi_Rh: Complex64,
@@ -81,4 +82,38 @@ pub fn phase_shift(
     let denom = (phi_R * fun_Rh[2]) - (phi_Rh * fun_R[2]);
 
     PhaseShift::new(-1.0 * (num / denom).atan(), l)
+}
+
+#[inline(always)]
+pub fn s_matrix(phase_shift: Complex64) -> Complex64 {
+    (2.0_f64 * Complex::i() * phase_shift).exp()
+}
+
+/// Given a vector of PhaseShift structs that are already ordered according to
+/// l_i > l_{i - 1}, return a new vector that only has the strictly increasing
+/// real S-matrix values.
+pub fn converged_values(phase_shifts: &[PhaseShift]) -> Vec<PhaseShift> {
+    let mut stop_l: usize = phase_shifts.len();
+    let mut begin_check = false;
+    for (i, &ele) in phase_shifts.iter().enumerate() {
+        let re = s_matrix(ele.val).re;
+        if begin_check && (re < s_matrix(phase_shifts[i - 1].val).re) || (re >= 1.0) {
+            stop_l = i; // stopping index is exclusive
+            break;
+        }
+
+        // We first wait until the phase shift crosses a threshold value of 0.99
+        // to start checking for convergence
+        if re > 0.99 {
+            begin_check = true
+        };
+    }
+    if !begin_check {
+        // This means that the values never crossed 0.99, raise an error.
+        panic!(
+            "Non-convergence in phase shifts! Last value: {:.5}",
+            s_matrix(phase_shifts.last().unwrap().val).re
+        );
+    }
+    phase_shifts[..stop_l].to_vec()
 }

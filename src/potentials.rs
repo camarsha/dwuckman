@@ -27,9 +27,9 @@ pub fn coulomb(x: &[f64], z1: f64, z2: f64, rc: f64) -> Vec<f64> {
     let mut result = vec![0.0; x.len()];
     for (i, &ele) in x.iter().enumerate() {
         if ele < rc {
-            result[i] = (z1 * z2 * e2) / (2.0 * rc) * (3.0 - (x[i]).powi(2) / rc.powi(2));
+            result[i] = (z1 * z2 * E2) / (2.0 * rc) * (3.0 - (x[i]).powi(2) / rc.powi(2));
         } else {
-            result[i] = (z1 * z2 * e2) / x[i];
+            result[i] = (z1 * z2 * E2) / x[i];
         }
     }
     result
@@ -43,7 +43,7 @@ pub fn centrifugal(x: &[f64], l: f64) -> Vec<f64> {
     }
     result
 }
-
+#[allow(non_snake_case)]
 pub fn spin_orbit(x: &[f64], l: f64, s: f64, V: f64, r: f64, a: f64, mu: f64) -> Vec<f64> {
     /* the spin orbit term is a bit convoluted, it is a derivative(surface) Woods-Saxon,
     which unlike the form of the imaginary surface term, does not cancel the a term. So
@@ -65,7 +65,7 @@ pub fn spin_orbit(x: &[f64], l: f64, s: f64, V: f64, r: f64, a: f64, mu: f64) ->
     let l_term = l * (l + 1.0);
     let s_term = s * (s + 1.0);
     let spin_term = j_term - l_term - s_term; // FRESCO convention of 2Ls.
-    let c: f64 = -(2.0 * mu) / hbar.powi(2); //scaling
+    let c: f64 = -(2.0 * mu) / HBAR.powi(2); //scaling
 
     for (i, &ele) in x.iter().enumerate() {
         result[i] = c * (2.0 * V) / (ele * a) * spin_term * (f64::exp((ele - r) / a))
@@ -81,6 +81,7 @@ pub fn add_pot(v1: &mut [f64], v2: &[f64]) {
 }
 
 // Hold the form factor (i.e sum of the potentials) for a given l.
+#[allow(non_snake_case)]
 pub struct FormFactor {
     pub re: Vec<f64>,
     pub im: Vec<f64>,
@@ -109,7 +110,7 @@ impl FormFactor {
             a_so: 0.0,
         }
     }
-
+    #[allow(non_snake_case)]
     pub fn add_woods_saxon(&mut self, V: f64, r: f64, a: f64, re: bool) {
         let temp: Vec<f64> = woods_saxon(&self.grid, V, r, a);
         if re {
@@ -118,7 +119,7 @@ impl FormFactor {
             add_pot(self.im.as_mut_slice(), temp.as_slice());
         }
     }
-
+    #[allow(non_snake_case)]
     pub fn add_der_woods_saxon(&mut self, V: f64, r: f64, a: f64, re: bool) {
         let temp: Vec<f64> = der_woods_saxon(&self.grid, V, r, a);
         if re {
@@ -132,7 +133,7 @@ impl FormFactor {
         let temp: Vec<f64> = coulomb(&self.grid, z1, z2, rc);
         add_pot(self.re.as_mut_slice(), temp.as_slice());
     }
-
+    #[allow(non_snake_case)]
     /// This one just simply initializes the spin orbit parameters
     pub fn add_spin_orbit(&mut self, V: f64, r: f64, a: f64) {
         self.V_so = V;
@@ -142,7 +143,7 @@ impl FormFactor {
 
     pub fn scale(&mut self, mu: f64, k: f64) {
         // apply the proper scaling to the l-independent parts
-        let c: f64 = -(2.0 * mu) / hbar.powi(2);
+        let c: f64 = -(2.0 * mu) / HBAR.powi(2);
 
         for i in 0..self.re.len() {
             self.re[i] = -k.powi(2) - self.re[i] * c;
@@ -157,7 +158,7 @@ impl FormFactor {
         }
         temp
     }
-
+    #[allow(non_snake_case)]
     pub fn update_spin_orbit(&self, re: &[f64], l: f64, s: f64) -> Vec<f64> {
         let mut temp: Vec<f64> = spin_orbit(
             self.grid.as_slice(),

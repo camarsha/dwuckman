@@ -1,19 +1,13 @@
 use crate::{
-    cross_section, integrate,
-    matching::{self, PhaseShift},
+    integrate,
+    matching::{self, converged_values, PhaseShift},
     potentials::FormFactor,
     wave_function::WaveFunction,
 };
-use num::{complex::Complex64, Complex};
+use num::Complex;
 use rayon::prelude::*;
-//use core::slice::SlicePattern;
-use std::cmp::Ordering;
 
 // Module to help reduce the length of the main loop
-#[inline(always)]
-pub fn s_matrix(phase_shift: Complex<f64>) -> Complex<f64> {
-    (2.0_f64 * Complex::i() * phase_shift).exp()
-}
 
 pub fn setup_grid(r_match: f64, h: f64) -> Vec<f64> {
     /*
@@ -43,6 +37,8 @@ pub fn setup_grid(r_match: f64, h: f64) -> Vec<f64> {
 }
 
 /// sets up the form factor based on the potentials that are entered
+#[allow(non_snake_case)]
+#[allow(clippy::too_many_arguments)]
 pub fn setup_form_factor(
     r_grid: &[f64],
     V: f64,
@@ -51,6 +47,9 @@ pub fn setup_form_factor(
     W: f64,
     r_i: f64,
     a_i: f64,
+    W_s: f64,
+    r_s: f64,
+    a_s: f64,
     V_so: f64,
     r_so: f64,
     a_so: f64,
@@ -63,12 +62,18 @@ pub fn setup_form_factor(
 ) -> FormFactor {
     let mut ff: FormFactor = FormFactor::new(r_grid, mu, k, eta);
     // setup the potentials
+    // real woods-saxon
     if V != 0.0 {
         ff.add_woods_saxon(V, r, a, true);
     };
+    // imaginary woods-saxon
     if W != 0.0 {
         ff.add_woods_saxon(W, r_i, a_i, false);
     };
+    // imaginary surface
+    if W_s != 0.0 {
+        ff.add_der_woods_saxon(W_s, r_s, a_s, false)
+    }
     if z1 != 0.0 {
         ff.add_coulomb(z1, z2, r_c);
     };
@@ -87,6 +92,55 @@ pub fn match_points(r_grid: &[f64], k: f64) -> (usize, f64, f64) {
     let rho_rh = r_grid[r_idx + 1] * k;
     (r_idx, rho_r, rho_rh)
 }
+
+/// Main computation loop. Calculates the delta_l for the potential parameters.
+pub fn calc_phase_shifts(r_grid: &[f64], ff: FormFactor, num_l: i32, h: f64) -> Vec<PhaseShift> {
+    // convert l values to f64 for calculations
+    let ell: Vec<f64> = (0..num_l).map(|x| x as f64).collect();
+
+    // the grid points to match at
+    let (r_idx, rho_r, rho_rh) = match_points(r_grid, ff.k);
+
+    let phase_shifts: Vec<matching::PhaseShift> = ell
+        .into_par_iter()
+        .map(|l| {
+            // create wave function
+            let mut phi = WaveFunction::new(r_grid);
+
+            // starting values for integration
+            phi.setup(h, l);
+
+            // add centrifugal term
+            let re_l = ff.update_centrifugal(ff.re.as_slice(), l);
+
+            // special case for l=1, see Melkanoff
+            if l as i32 == 1 {
+                phi.re[phi.start_idx - 1] = 2.0 / re_l[0];
+            }
+
+            integrate::fox_goodwin_coupled(
+                h,
+                re_l.as_slice(),
+                ff.im.as_slice(),
+                phi.re.as_mut_slice(),
+                phi.im.as_mut_slice(),
+                phi.start_idx,
+            );
+
+            // values for matching using Psuedo-Wronskian
+
+            let phi_r = Complex::new(phi.re[r_idx], phi.im[r_idx]);
+            let phi_rh = Complex::new(phi.re[r_idx + 1], phi.im[r_idx + 1]);
+
+            matching::phase_shift(phi_r, phi_rh, rho_r, rho_rh, ff.eta, l)
+        })
+        .collect();
+
+    // Now we check for convergence
+    converged_values(phase_shifts.as_slice())
+}
+
+/* TODO: Reimplement Spin 1/2 case*/
 
 // // performs integration for spin one half projectiles
 // pub fn partial_waves_half_par(
@@ -295,81 +349,3 @@ pub fn match_points(r_grid: &[f64], k: f64) -> (usize, f64, f64) {
 
 //     (a_total, b_total)
 // }
-
-/// Takes a complex vector of phase shits and checks for non-convergence
-
-/* Given a vector of PhaseShift structs that are already ordered according to
-l_i > l_{i - 1}, return a new vector that only has the strictly increasing
-real S-matrix values.
- */
-fn converged_values(phase_shifts: &[matching::PhaseShift]) -> Vec<matching::PhaseShift> {
-    let mut stop_l: usize = phase_shifts.len();
-    let mut begin_check = false;
-    for (i, &ele) in phase_shifts.iter().enumerate() {
-        //        println!("{:?}", s_matrix(ele.val));
-        let re = s_matrix(ele.val).re;
-        if begin_check {
-            if (re < s_matrix(phase_shifts[i - 1].val).re) || (re >= 1.0) {
-                stop_l = i; // stopping index is exclusive
-                break;
-            }
-        }
-        // We first wait until the phase shift crosses a threshold value of 0.99
-        // to start checking for convergence
-        if re > 0.99 {
-            begin_check = true
-        };
-    }
-    phase_shifts[..stop_l].to_vec()
-}
-
-pub fn calc_phase_shifts(r_grid: &[f64], ff: FormFactor, num_l: i32, h: f64) -> Vec<PhaseShift> {
-    // convert l values to f64 for calculations
-    let ell: Vec<f64> = (0..num_l).map(|x| x as f64).collect();
-
-    // the grid point match at
-    let (r_idx, rho_r, rho_rh) = match_points(r_grid, ff.k);
-
-    //
-    let mut phase_shifts: Vec<matching::PhaseShift> = ell
-        .into_par_iter()
-        .map(|l| {
-            // create wave function
-            let mut phi = WaveFunction::new(r_grid);
-
-            // starting values for integration
-            phi.setup(h, l);
-
-            // add centrifugal term
-            let re_l = ff.update_centrifugal(ff.re.as_slice(), l);
-
-            // special case for l=1, see Melkanoff
-            if l as i32 == 1 {
-                phi.re[phi.start_idx - 1] = 2.0 / re_l[0];
-            }
-
-            integrate::fox_goodwin_coupled(
-                h,
-                re_l.as_slice(),
-                ff.im.as_slice(),
-                phi.re.as_mut_slice(),
-                phi.im.as_mut_slice(),
-                phi.start_idx,
-            );
-
-            // values for matching using Psuedo-Wronskian
-
-            let phi_r = Complex::new(phi.re[r_idx], phi.im[r_idx]);
-            let phi_rh = Complex::new(phi.re[r_idx + 1], phi.im[r_idx + 1]);
-
-            matching::phase_shift(phi_r, phi_rh, rho_r, rho_rh, ff.eta, l)
-        })
-        .collect();
-
-    // Now we check for convergence
-    // sort by l_values
-    phase_shifts.sort_by(|a, b| a.partial_cmp(&b).unwrap());
-    // check for convergence based on real part of s-matrix.
-    // then return the converged values only
-    converged_values(phase_shifts.as_slice())
-}
