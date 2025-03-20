@@ -29,10 +29,8 @@ fn deg_to_rad(angles: &[f64]) -> Vec<f64> {
 
 /// Elastic scattering for spin zero particles also returns rutherford.
 ///fn spin_zero(
-///     a1: f64,
 ///     m1: f64,
 ///     z1: f64,
-///     a2: f64,
 ///     m2: f64,
 ///     z2: f64,
 ///     energy_lab: f64,

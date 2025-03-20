@@ -9,7 +9,12 @@ pub fn coulomb_phase_shift(l: f64, eta: f64) -> f64 {
     let zr = l + 1.0;
     let zi = eta;
 
-    let (_overflow, _lnr, arg) = lngamma_complex_e(zr, zi);
+    let (lnr, arg) = lngamma_complex_e(zr, zi).unwrap_or_else(|_| {
+        panic!(
+            "Failed calculation of colomb phase shift for l={:.3}, eta={:.3}",
+            l, eta
+        );
+    });
     // We just care about arg
     arg.val
 }
@@ -52,7 +57,7 @@ pub fn cross_section_spin_zero(
     mel_coeff: &[Complex64],
     k: f64,
 ) -> f64 {
-    let coeff = (4.0 * PI) / (k.powi(2));
+    let coeff = 10.0 * (4.0 * PI) / (k.powi(2));
     coeff
         * mel_coeff
             .into_iter()

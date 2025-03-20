@@ -41,20 +41,19 @@ pub fn coulomb_functions(rho: f64, eta: f64, l: f64) -> Vec<f64> {
     let mut exp_G = 0.0_f64;
 
     // Get the coulomb functions at rho
-    let (overflow, mut F, mut Fp, mut G, mut Gp) =
-        wave_FG_e(eta, rho, l, 0, &mut exp_F, &mut exp_G);
+    let (mut F, mut Fp, mut G, mut Gp) = wave_FG_e(eta, rho, l, 0, &mut exp_F, &mut exp_G)
+        .unwrap_or_else(|_| {
+            panic!(
+                "Overflow in coulomb wavefunctions: rho={:.3} eta={:.3} l={}",
+                rho, eta, l as i32
+            );
+        });
 
     // deal with potential overflow
-    if !overflow.is_success() {
-        println!(
-            "Overflow in coulomb wavefunctions: rho={:.3} eta={:.3} l={}",
-            rho, eta, l as i32
-        );
-        F.val *= exp_F.powf(E);
-        G.val *= exp_G.powf(E);
-        Fp.val *= exp_F.powf(E);
-        Gp.val *= exp_F.powf(E);
-    }
+    // F.val *= exp_F.powf(E);
+    // G.val *= exp_G.powf(E);
+    // Fp.val *= exp_F.powf(E);
+    // Gp.val *= exp_F.powf(E);
 
     vec![F.val, Fp.val, G.val, Gp.val]
 }

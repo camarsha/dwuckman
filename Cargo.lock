@@ -4,9 +4,9 @@ version = 3
 
 [[package]]
 name = "GSL"
-version = "4.0.4"
+version = "7.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3c90488c022c43f0009d7e804c4925b8975296b1c7aaca4cb18e3b434f809f7c"
+checksum = "db3943d5a15b5c46e991124abee6a1bc89c7c9ffb25dbb8aeb4eab926fd9b307"
 dependencies = [
  "GSL-sys",
  "paste",
@@ -14,9 +14,9 @@ dependencies = [
 
 [[package]]
 name = "GSL-sys"
-version = "2.0.2"
+version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fbf44cd363ba6b685de2ead20a580ff72cee2e953285bd8ca8cc9208d58dace5"
+checksum = "4577670dcc0720995dc39f04c438595eaae8ccc27f4aafd3e572dd408d01bd9d"
 dependencies = [
  "libc",
  "pkg-config",
