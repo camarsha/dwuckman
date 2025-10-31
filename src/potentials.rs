@@ -1,8 +1,7 @@
+#![allow(non_snake_case)]
 use crate::constants::*;
 
-/// A struct to hold all currently defined potential parameters.
-/// The alternative is to start passing 20+ arguments to functions.
-pub struct PotParams {}
+type WoodsSaxonLike = fn(&[f64], f64, f64, f64) -> Vec<f64>;
 
 /// Woods-Saxon form factor. Given a positive V, returns -f(V, r, a).
 pub fn woods_saxon(x: &[f64], V: f64, r: f64, a: f64) -> Vec<f64> {
@@ -20,6 +19,16 @@ pub fn der_woods_saxon(x: &[f64], V: f64, r: f64, a: f64) -> Vec<f64> {
     for (i, ele) in x.iter().enumerate() {
         let f = f64::exp((ele - r) / a);
         result[i] = -4.0 * V * (f / (1.0 + f).powi(2));
+    }
+    result
+}
+
+/// Squared Woods-Saxon form factor. Given a positive V, returns -V[f(r, a)]^2
+pub fn sqr_woods_saxon(x: &[f64], V: f64, r: f64, a: f64) -> Vec<f64> {
+    let mut result = vec![0.0; x.len()];
+    for (i, ele) in x.iter().enumerate() {
+        let f = f64::exp((ele - r) / a);
+        result[i] = -V * f.powi(2);
     }
     result
 }
@@ -44,7 +53,6 @@ pub fn centrifugal(x: &[f64], l: f64) -> Vec<f64> {
     }
     result
 }
-#[allow(non_snake_case)]
 pub fn spin_orbit(x: &[f64], l: f64, s: f64, V: f64, r: f64, a: f64, mu: f64) -> Vec<f64> {
     /* the spin orbit term is a bit convoluted, it is a derivative(surface) Woods-Saxon,
     which unlike the form of the imaginary surface term, does not cancel the a term. So
@@ -82,7 +90,6 @@ pub fn add_pot(v1: &mut [f64], v2: &[f64]) {
 }
 
 // Hold the form factor (i.e sum of the potentials) for a given l.
-#[allow(non_snake_case)]
 pub struct FormFactor {
     pub re: Vec<f64>,
     pub im: Vec<f64>,
@@ -111,32 +118,39 @@ impl FormFactor {
             a_so: 0.0,
         }
     }
-    #[allow(non_snake_case)]
-    pub fn add_woods_saxon(&mut self, V: f64, r: f64, a: f64, re: bool) {
-        let temp: Vec<f64> = woods_saxon(&self.grid, V, r, a);
-        if re {
-            add_pot(self.re.as_mut_slice(), temp.as_slice());
-        } else {
-            add_pot(self.im.as_mut_slice(), temp.as_slice());
-        }
-    }
-    #[allow(non_snake_case)]
-    pub fn add_der_woods_saxon(&mut self, V: f64, r: f64, a: f64, re: bool) {
-        let temp: Vec<f64> = der_woods_saxon(&self.grid, V, r, a);
-        if re {
-            add_pot(self.re.as_mut_slice(), temp.as_slice());
-        } else {
-            add_pot(self.im.as_mut_slice(), temp.as_slice());
+
+    /// Unpacks the parameter vector and creates the total form factor.
+    pub fn add_potentials(&mut self, pot_params: &[f64], a13: f64, z1: f64, z2: f64) {
+        match *pot_params {
+            [V, r, a, W, riv, aiv, WS, ris, ais, SWS, sri, sai, Vso, rso, aso, rc] => {
+                self.add_woods_saxon_like(woods_saxon, V, r * a13, a, true);
+                self.add_woods_saxon_like(woods_saxon, W, riv * a13, aiv, false);
+                self.add_woods_saxon_like(der_woods_saxon, WS, ris * a13, ais, false);
+                self.add_woods_saxon_like(sqr_woods_saxon, SWS, sri * a13, sai, false);
+                self.add_spin_orbit(Vso, rso * a13, aso);
+                self.add_coulomb(z1, z2, rc * a13);
+            }
+            _ => panic!("Malformed potential parameters {:?}!", pot_params),
         }
     }
 
-    pub fn add_coulomb(&mut self, z1: f64, z2: f64, rc: f64) {
+    fn add_woods_saxon_like(&mut self, func: WoodsSaxonLike, V: f64, r: f64, a: f64, re: bool) {
+        if V != 0.0 {
+            let temp: Vec<f64> = func(&self.grid, V, r, a);
+            if re {
+                add_pot(self.re.as_mut_slice(), temp.as_slice());
+            } else {
+                add_pot(self.im.as_mut_slice(), temp.as_slice());
+            }
+        }
+    }
+
+    fn add_coulomb(&mut self, z1: f64, z2: f64, rc: f64) {
         let temp: Vec<f64> = coulomb(&self.grid, z1, z2, rc);
         add_pot(self.re.as_mut_slice(), temp.as_slice());
     }
-    #[allow(non_snake_case)]
     /// This one just simply initializes the spin orbit parameters
-    pub fn add_spin_orbit(&mut self, V: f64, r: f64, a: f64) {
+    fn add_spin_orbit(&mut self, V: f64, r: f64, a: f64) {
         self.V_so = V;
         self.r_so = r;
         self.a_so = a;
@@ -159,7 +173,8 @@ impl FormFactor {
         }
         temp
     }
-    #[allow(non_snake_case)]
+
+    #[allow(dead_code)]
     pub fn update_spin_orbit(&self, re: &[f64], l: f64, s: f64) -> Vec<f64> {
         let mut temp: Vec<f64> = spin_orbit(
             self.grid.as_slice(),

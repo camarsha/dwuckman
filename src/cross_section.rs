@@ -1,4 +1,4 @@
-use crate::matching::{self, PhaseShift};
+use crate::matching;
 use num::complex::{Complex, Complex64};
 use rgsl::gamma_beta::gamma::lngamma_complex_e;
 use rgsl::legendre::associated_polynomials::legendre_Plm;
@@ -9,7 +9,7 @@ pub fn coulomb_phase_shift(l: f64, eta: f64) -> f64 {
     let zr = l + 1.0;
     let zi = eta;
 
-    let (lnr, arg) = lngamma_complex_e(zr, zi).unwrap_or_else(|_| {
+    let (_lnr, arg) = lngamma_complex_e(zr, zi).unwrap_or_else(|_| {
         panic!(
             "Failed calculation of colomb phase shift for l={:.3}, eta={:.3}",
             l, eta
@@ -100,30 +100,8 @@ pub fn diff_cross_spin_zero(
         .collect()
 }
 
-/// calculate spin 0 amplitude
-/// Uses Melkanoff notation, so C_l = -i/2 * [exp(2 * i * delta_l) - 1]
-/// Rest is standard calculate of scattering amplitudes.
-pub fn spin_zero_amp(
-    angles: &[f64],
-    phase_shift: Complex<f64>,
-    l: f64,
-    k: f64,
-    eta: f64,
-) -> Vec<Complex<f64>> {
-    let coul_ps: f64 = coulomb_phase_shift(l, eta); //coulomb phase shift
-    let coul_term: Complex<f64> = (2.0 * coul_ps * Complex::i()).exp();
-    let int_l = l as i32;
-    let pl: Vec<f64> = angles
-        .iter()
-        .map(|x| 1.0 / k * (2.0 * l + 1.0) * legendre_Pl(int_l, f64::cos(*x)))
-        .collect();
-    let c_l: Complex<f64> =
-        (-Complex::i() / 2.0) * ((2.0_f64 * Complex::i() * phase_shift).exp() - 1.0);
-    pl.iter().map(|x| *x * coul_term * c_l).collect()
-}
-
 /// Now we have l - 1/2 and l + 1/2.
-pub fn spin_half_ampl(
+pub fn _spin_half_ampl(
     angles: &[f64],
     phase_shift_minus: Complex<f64>,
     phase_shift_plus: Complex<f64>,
@@ -169,7 +147,7 @@ pub fn spin_half_ampl(
     (a_theta, b_theta)
 }
 
-pub fn diff_cross_section(angles: &[f64], f_nuc: &[Complex<f64>], k: f64, eta: f64) -> Vec<f64> {
+pub fn _diff_cross_section(angles: &[f64], f_nuc: &[Complex<f64>], k: f64, eta: f64) -> Vec<f64> {
     // Coulomb part
     let f_coul = coulomb_ampl(angles, k, eta);
     // total is nuclear + coulomb
@@ -184,7 +162,7 @@ pub fn diff_cross_section(angles: &[f64], f_nuc: &[Complex<f64>], k: f64, eta: f
 }
 
 /// This calculates differential cross section and first order analyzing power
-pub fn all_observables(
+pub fn _all_observables(
     angles: &[f64],
     a_nuc: &[Complex<f64>],
     b_nuc: &[Complex<f64>],

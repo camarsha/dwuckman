@@ -1,7 +1,6 @@
 use num::complex::{Complex, Complex64};
 use rgsl::coulomb::wave_FG_e;
 use std::cmp::Ordering;
-use std::f64::consts::E;
 
 /* We define all of the phase shift structs here. There is one for each supported spin value
 Each of them implements PartialEq and PartialOrd so that we can sort after the parallel partial wave loop.
@@ -35,7 +34,7 @@ impl PartialOrd for PhaseShift {
 /*
 Now we have the functions that actual calculate the phase shifts
 */
-#[allow(non_snake_case)]
+#[allow(non_snake_case, unused_mut)]
 pub fn coulomb_functions(rho: f64, eta: f64, l: f64) -> Vec<f64> {
     let mut exp_F = 0.0_f64;
     let mut exp_G = 0.0_f64;

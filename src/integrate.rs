@@ -1,23 +1,20 @@
-pub fn fox_goodwin(h: f64, q: &[f64], phi: &mut [f64], start_idx: usize) {
+fn _fox_goodwin(h: f64, q: &[f64], phi: &mut [f64], start_idx: usize) {
     // fox goodwin algorithm for a real wave function and potential. Used for testing.
 
     let g = h.powi(2) / 12.0;
     // three step algorithm
-    let mut y1 = 0.0_f64;
-    let mut y2 = 0.0_f64;
-    let mut y3 = 0.0_f64;
     let end = phi.len();
     let start = start_idx + 1;
 
     for i in start..end {
-        y1 = (1.0 - (g * q[i]));
-        y2 = (2.0 + (10.0 * g * q[i - 1]));
-        y3 = (1.0 - (g * q[i - 2]));
+        let y1 = 1.0 - (g * q[i]);
+        let y2 = 2.0 + (10.0 * g * q[i - 1]);
+        let y3 = 1.0 - (g * q[i - 2]);
         phi[i] = 1.0 / y1 * (y2 * phi[i - 1] - y3 * phi[i - 2]);
         // check if renormalization is needed, taken from ECIS
         if f64::abs(phi[i]) > 1e15 {
             //and if so do it
-            for j in 0..i {
+            for _j in 0..i {
                 phi[i] = phi[i] * 1e-30
             }
         };

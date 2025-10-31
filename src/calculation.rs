@@ -41,45 +41,17 @@ pub fn setup_grid(r_match: f64, h: f64) -> Vec<f64> {
 #[allow(clippy::too_many_arguments)]
 pub fn setup_form_factor(
     r_grid: &[f64],
-    V: f64,
-    r: f64,
-    a: f64,
-    W: f64,
-    r_i: f64,
-    a_i: f64,
-    W_s: f64,
-    r_s: f64,
-    a_s: f64,
-    V_so: f64,
-    r_so: f64,
-    a_so: f64,
+    pot_params: &[f64],
+    a13: f64,
     z1: f64,
     z2: f64,
-    r_c: f64,
     mu: f64,
     k: f64,
     eta: f64,
 ) -> FormFactor {
     let mut ff: FormFactor = FormFactor::new(r_grid, mu, k, eta);
     // setup the potentials
-    // real woods-saxon
-    if V != 0.0 {
-        ff.add_woods_saxon(V, r, a, true);
-    };
-    // imaginary woods-saxon
-    if W != 0.0 {
-        ff.add_woods_saxon(W, r_i, a_i, false);
-    };
-    // imaginary surface
-    if W_s != 0.0 {
-        ff.add_der_woods_saxon(W_s, r_s, a_s, false)
-    }
-    if z1 != 0.0 {
-        ff.add_coulomb(z1, z2, r_c);
-    };
-    if V_so != 0.0 {
-        ff.add_spin_orbit(V_so, r_so, a_so);
-    }
+    ff.add_potentials(pot_params, a13, z1, z2);
     ff.scale(mu, k);
 
     ff

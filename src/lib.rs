@@ -6,11 +6,11 @@ mod matching;
 mod potentials;
 mod wave_function;
 use constants::*;
-use num::complex::Complex;
 use potentials::FormFactor;
 use pyo3::prelude::*;
 use std::f64::consts::PI;
 
+#[inline(always)]
 fn deg_to_rad(angles: &[f64]) -> Vec<f64> {
     // check and convert angles
     let rad_angles: Vec<f64> = angles
@@ -25,6 +25,39 @@ fn deg_to_rad(angles: &[f64]) -> Vec<f64> {
         })
         .collect();
     rad_angles
+}
+
+#[inline(always)]
+fn mass_constants(m1: f64, m2: f64) -> (f64, f64, f64, f64, f64) {
+    let a1 = m1.round();
+    let a2 = m2.round();
+    // convert to MeV
+    let m1_mev = m1 * U_TO_MEV;
+    let m2_mev = m2 * U_TO_MEV;
+    // Scale the radii
+    let a13 = a2.powf(1.0 / 3.0);
+    (m1_mev, m2_mev, a1, a2, a13)
+}
+
+#[inline(always)]
+fn com_energy(energy_lab: f64, m1: f64, m2: f64) -> f64 {
+    energy_lab * (m2 / (m1 + m2))
+}
+
+#[inline(always)]
+/// Calculate the reduced mass. IT IS EXPECT THE MASSES ARE IN MeV!
+fn reduced_mass(m1: f64, m2: f64) -> f64 {
+    (m1 * m2) / (m1 + m2)
+}
+
+#[inline(always)]
+fn wave_number(energy_com: f64, mu: f64) -> f64 {
+    f64::sqrt((2.0 * mu * energy_com) / HBAR.powi(2))
+}
+
+#[inline(always)]
+fn coulomb_wf_eta(z1: f64, z2: f64, mu: f64, k: f64) -> f64 {
+    ((z1 * z2) * E2) * (mu / (HBAR.powi(2) * k))
 }
 
 /// Elastic scattering for spin zero particles also returns rutherford.
@@ -46,8 +79,7 @@ fn deg_to_rad(angles: &[f64]) -> Vec<f64> {
 ///     r_match: f64,
 ///     dr: f64,
 /// ) -> (Vec<f64>, Vec<f64>)
-#[allow(non_snake_case)]
-#[allow(clippy::too_many_arguments)]
+#[allow(non_snake_case, clippy::too_many_arguments)]
 #[pyfunction]
 fn spin_zero(
     m1: f64,
@@ -55,39 +87,20 @@ fn spin_zero(
     m2: f64,
     z2: f64,
     energy_lab: f64,
-    V: f64,
-    r: f64,
-    a: f64,
-    W: f64,
-    r_i: f64,
-    a_i: f64,
-    W_s: f64,
-    r_s: f64,
-    a_s: f64,
-    r_c: f64,
+    pot_params: Vec<f64>,
     partial_waves: i32,
     angles: Vec<f64>,
     r_match: f64,
     dr: f64,
 ) -> (f64, Vec<f64>, Vec<f64>) {
-    // reaction constants
+    // mass constants
+    let (m1_mev, m2_mev, _a1, _a2, a13) = mass_constants(m1, m2);
 
-    // convert to MeV
-    let m1 = m1 * U_TO_MEV;
-    let m2_u = m2;
-    let m2 = m2 * U_TO_MEV;
-
-    // Scale the radii
-    let a13 = m2_u.powf(1.0 / 3.0);
-    let r = r * a13;
-    let r_i = r_i * a13;
-    let r_s = r_s * a13;
-    let r_c = r_c * a13;
-
-    let energy_com = energy_lab * (m2 / (m1 + m2));
-    let mu = (m1 * m2) / (m1 + m2);
-    let k = f64::sqrt((2.0 * mu * energy_com) / HBAR.powi(2));
-    let eta = ((z1 * z2) * E2) * (mu / (HBAR.powi(2) * k));
+    // energy constants
+    let energy_com = com_energy(energy_lab, m1, m2);
+    let mu = reduced_mass(m1_mev, m2_mev);
+    let k = wave_number(energy_com, mu);
+    let eta = coulomb_wf_eta(z1, z2, mu, k);
 
     // check and convert angles
     let angles: Vec<f64> = deg_to_rad(&angles);
@@ -96,21 +109,10 @@ fn spin_zero(
     let r_grid: Vec<f64> = calculation::setup_grid(r_match, dr);
     let ff: FormFactor = calculation::setup_form_factor(
         r_grid.as_slice(),
-        V,
-        r,
-        a,
-        W,
-        r_i,
-        a_i,
-        W_s,
-        r_s,
-        a_s,
-        0.0,
-        0.0,
-        0.0,
+        pot_params.as_slice(),
+        a13,
         z1,
         z2,
-        r_c,
         mu,
         k,
         eta,
