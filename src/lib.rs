@@ -60,6 +60,106 @@ fn coulomb_wf_eta(z1: f64, z2: f64, mu: f64, k: f64) -> f64 {
     ((z1 * z2) * E2) * (mu / (HBAR.powi(2) * k))
 }
 
+#[inline(always)]
+fn common_spin_zero(
+    m1: f64,
+    z1: f64,
+    m2: f64,
+    z2: f64,
+    energy_lab: f64,
+    pot_params: Vec<f64>,
+    _partial_waves: i32,
+    angles: Vec<f64>,
+    r_match: f64,
+    dr: f64,
+) -> (Vec<f64>, Vec<f64>, FormFactor, f64, f64, f64) {
+    let (m1_mev, m2_mev, _a1, _a2, a13) = mass_constants(m1, m2);
+
+    // energy constants
+    let energy_com = com_energy(energy_lab, m1, m2);
+    let mu = reduced_mass(m1_mev, m2_mev);
+    let k = wave_number(energy_com, mu);
+    let eta = coulomb_wf_eta(z1, z2, mu, k);
+
+    // check and convert angles
+    let angles: Vec<f64> = deg_to_rad(&angles);
+
+    // setup the grid and the potentials
+    let r_grid: Vec<f64> = calculation::setup_grid(r_match, dr);
+    let ff: FormFactor = calculation::setup_form_factor(
+        r_grid.as_slice(),
+        pot_params.as_slice(),
+        a13,
+        z1,
+        z2,
+        mu,
+        k,
+        eta,
+    );
+    (angles, r_grid, ff, mu, eta, k)
+}
+#[pyfunction]
+fn phase_shift_spin_zero(
+    m1: f64,
+    z1: f64,
+    m2: f64,
+    z2: f64,
+    energy_lab: f64,
+    pot_params: Vec<f64>,
+    partial_waves: i32,
+    angles: Vec<f64>,
+    r_match: f64,
+    dr: f64,
+) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
+    let (_angles, r_grid, ff, _mu, _eta, _k) = common_spin_zero(
+        m1,
+        z1,
+        m2,
+        z2,
+        energy_lab,
+        pot_params,
+        partial_waves,
+        angles,
+        r_match,
+        dr,
+    );
+    let ps = calculation::calc_phase_shifts(r_grid.as_slice(), ff, partial_waves, dr);
+    let l = ps.iter().map(|x| x.l).collect();
+    let re = ps.iter().map(|x| x.val.re).collect();
+    let im = ps.iter().map(|x| x.val.im).collect();
+    (l, re, im)
+}
+
+#[pyfunction]
+fn wave_function_spin_zero(
+    m1: f64,
+    z1: f64,
+    m2: f64,
+    z2: f64,
+    energy_lab: f64,
+    pot_params: Vec<f64>,
+    ell: i32,
+    partial_waves: i32,
+    angles: Vec<f64>,
+    r_match: f64,
+    dr: f64,
+) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
+    let (_angles, r_grid, ff, _mu, _eta, _k) = common_spin_zero(
+        m1,
+        z1,
+        m2,
+        z2,
+        energy_lab,
+        pot_params,
+        partial_waves,
+        angles,
+        r_match,
+        dr,
+    );
+    let wf = calculation::calc_wave_function(&r_grid, ff, ell, dr);
+    (r_grid, wf.re, wf.im)
+}
+
 /// Elastic scattering for spin zero particles also returns rutherford.
 ///fn spin_zero(
 ///     m1: f64,
@@ -93,31 +193,19 @@ fn spin_zero(
     r_match: f64,
     dr: f64,
 ) -> (f64, Vec<f64>, Vec<f64>) {
-    // mass constants
-    let (m1_mev, m2_mev, _a1, _a2, a13) = mass_constants(m1, m2);
-
-    // energy constants
-    let energy_com = com_energy(energy_lab, m1, m2);
-    let mu = reduced_mass(m1_mev, m2_mev);
-    let k = wave_number(energy_com, mu);
-    let eta = coulomb_wf_eta(z1, z2, mu, k);
-
-    // check and convert angles
-    let angles: Vec<f64> = deg_to_rad(&angles);
-
-    // setup the grid and the potentials
-    let r_grid: Vec<f64> = calculation::setup_grid(r_match, dr);
-    let ff: FormFactor = calculation::setup_form_factor(
-        r_grid.as_slice(),
-        pot_params.as_slice(),
-        a13,
+    // common parameters that are needed.
+    let (angles, r_grid, ff, _mu, eta, k) = common_spin_zero(
+        m1,
         z1,
+        m2,
         z2,
-        mu,
-        k,
-        eta,
+        energy_lab,
+        pot_params,
+        partial_waves,
+        angles,
+        r_match,
+        dr,
     );
-
     // calculate the scattering amplitude note that ff will be moved
     let ps = calculation::calc_phase_shifts(r_grid.as_slice(), ff, partial_waves, dr);
     let mel_coeff = cross_section::melkanoff_coeff(ps.as_slice());
@@ -239,6 +327,7 @@ fn spin_zero(
 #[pymodule]
 fn dwuckman(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(spin_zero, m)?)?;
-    //    m.add_function(wrap_pyfunction!(spin_half, m)?)?;
+    m.add_function(wrap_pyfunction!(phase_shift_spin_zero, m)?)?;
+    m.add_function(wrap_pyfunction!(wave_function_spin_zero, m)?)?;
     Ok(())
 }

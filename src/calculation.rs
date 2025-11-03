@@ -53,7 +53,6 @@ pub fn setup_form_factor(
     // setup the potentials
     ff.add_potentials(pot_params, a13, z1, z2);
     ff.scale(mu, k);
-
     ff
 }
 
@@ -110,6 +109,33 @@ pub fn calc_phase_shifts(r_grid: &[f64], ff: FormFactor, num_l: i32, h: f64) -> 
 
     // Now we check for convergence
     converged_values(phase_shifts.as_slice())
+}
+
+/// Calculate the Wave Function for a single l-value
+pub fn calc_wave_function(r_grid: &[f64], ff: FormFactor, l: i32, h: f64) -> WaveFunction {
+    // create wave function
+    let mut phi = WaveFunction::new(r_grid);
+
+    // starting values for integration
+    phi.setup(h, l as f64);
+
+    // add centrifugal term
+    let re_l = ff.update_centrifugal(ff.re.as_slice(), l as f64);
+
+    // special case for l=1, see Melkanoff
+    if l as i32 == 1 {
+        phi.re[phi.start_idx - 1] = 2.0 / re_l[0];
+    }
+
+    integrate::fox_goodwin_coupled(
+        h,
+        re_l.as_slice(),
+        ff.im.as_slice(),
+        phi.re.as_mut_slice(),
+        phi.im.as_mut_slice(),
+        phi.start_idx,
+    );
+    phi
 }
 
 /* TODO: Reimplement Spin 1/2 case*/
