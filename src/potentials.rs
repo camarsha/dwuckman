@@ -27,7 +27,7 @@ pub fn der_woods_saxon(x: &[f64], V: f64, r: f64, a: f64) -> Vec<f64> {
 pub fn sqr_woods_saxon(x: &[f64], V: f64, r: f64, a: f64) -> Vec<f64> {
     let mut result = vec![0.0; x.len()];
     for (i, ele) in x.iter().enumerate() {
-        let f = f64::exp((ele - r) / a);
+        let f = 1.0 / (1.0 + f64::exp((ele - r) / a));
         result[i] = -V * f.powi(2);
     }
     result
