@@ -26,10 +26,7 @@ pub fn coulomb_ampl(angles: &[f64], k: f64, eta: f64) -> Vec<Complex<f64>> {
 
     for (i, &a) in angles.iter().enumerate() {
         let denom = Complex::new(2.0 * k * (a / 2.0).sin().powi(2), 0.0);
-        let num = Complex::new(
-            0.0,
-            -1.0 * ((a / 2.0).sin().powi(2).ln()) * eta + (2.0 * sig_0),
-        );
+        let num = Complex::new(0.0, -((a / 2.0).sin().powi(2).ln()) * eta + (2.0 * sig_0));
         f[i] = (-eta / denom) * num.exp();
     }
 
@@ -60,8 +57,8 @@ pub fn cross_section_spin_zero(
     let coeff = 10.0 * (4.0 * PI) / (k.powi(2));
     coeff
         * mel_coeff
-            .into_iter()
-            .zip(phase_shifts.into_iter())
+            .iter()
+            .zip(phase_shifts.iter())
             .fold(0.0, |acc, (mc, ps)| {
                 acc + (((2.0 * ps.l) + 1.0) * (mc.im - mc.norm_sqr()))
             })
@@ -79,14 +76,14 @@ pub fn diff_cross_spin_zero(
 
     // Do the l sum
     let mut f_nuc = vec![Complex::new(0.0, 0.0); angles.len()];
+    let cos_angle: Vec<f64> = angles.iter().map(|&x| f64::cos(x)).collect();
     for (&ps, &mc) in phase_shifts.iter().zip(mel_coeff.iter()) {
         let int_l = ps.l as i32;
         let coul_ps: f64 = coulomb_phase_shift(ps.l, eta); //coulomb phase shift
         let coul_term: Complex<f64> = (2.0 * coul_ps * Complex::i()).exp();
 
-        for (i, &x) in angles.iter().enumerate() {
-            f_nuc[i] +=
-                mc * coul_term * 1.0 / k * (2.0 * ps.l + 1.0) * legendre_Pl(int_l, f64::cos(x));
+        for (i, &x) in cos_angle.iter().enumerate() {
+            f_nuc[i] += mc * coul_term * 1.0 / k * (2.0 * ps.l + 1.0) * legendre_Pl(int_l, x);
         }
     }
 

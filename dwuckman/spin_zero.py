@@ -13,7 +13,7 @@ class SpinZero:
         self.dr = dr
 
     def wave_function(self, energy_lab, ell, pot_params):
-        return wave_function_spin_zero(
+        r, re, im = wave_function_spin_zero(
             self.m1,
             self.z1,
             self.m2,
@@ -26,9 +26,10 @@ class SpinZero:
             self.r_match,
             self.dr,
         )
+        return np.asarray(r), np.asarray(re), np.asarray(im)
 
     def phase_shifts(self, energy_lab, pot_params):
-        return phase_shift_spin_zero(
+        l, re, im = phase_shift_spin_zero(
             self.m1,
             self.z1,
             self.m2,
@@ -40,6 +41,12 @@ class SpinZero:
             self.r_match,
             self.dr,
         )
+        return np.asarray(l), np.asarray(re), np.asarray(im)
+
+    def s_matrix(self, energy_lab, pot_params):
+        l, re, im = self.phase_shifts(energy_lab, pot_params)
+        s = np.exp(2.0j * (re + (1j * im)))
+        return (np.asarray(l), s.real, s.imag)
 
     def cross_section(self, energy_lab, angles, pot_params):
         tot, diff, ruth = spin_zero(

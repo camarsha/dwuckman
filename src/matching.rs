@@ -48,12 +48,6 @@ pub fn coulomb_functions(rho: f64, eta: f64, l: f64) -> Vec<f64> {
             );
         });
 
-    // deal with potential overflow
-    // F.val *= exp_F.powf(E);
-    // G.val *= exp_G.powf(E);
-    // Fp.val *= exp_F.powf(E);
-    // Gp.val *= exp_F.powf(E);
-
     vec![F.val, Fp.val, G.val, Gp.val]
 }
 

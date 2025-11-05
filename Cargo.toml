@@ -12,7 +12,6 @@ crate-type = ["cdylib"]
 path = "src/lib.rs"
 
 [dependencies]
-
 rayon = "1.5"
 GSL = "7.0"
 num = "0.4.0"
