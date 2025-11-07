@@ -49,19 +49,24 @@ pub fn melkanoff_coeff(phase_shifts: &[matching::PhaseShift]) -> Vec<Complex64> 
 }
 
 /// Calculate the total reaction cross section for spin zero particles
+/// Update: This now is used to check for convergence as well
+/// the method for checking convergence.
 pub fn cross_section_spin_zero(
     phase_shifts: &[matching::PhaseShift],
     mel_coeff: &[Complex64],
     k: f64,
-) -> f64 {
+) -> (usize, f64) {
     let coeff = 10.0 * (4.0 * PI) / (k.powi(2));
-    coeff
-        * mel_coeff
-            .iter()
-            .zip(phase_shifts.iter())
-            .fold(0.0, |acc, (mc, ps)| {
-                acc + (((2.0 * ps.l) + 1.0) * (mc.im - mc.norm_sqr()))
-            })
+    let cs_l: Vec<f64> = mel_coeff
+        .iter()
+        .zip(phase_shifts.iter())
+        .map(|(mc, ps)| coeff * (((2.0 * ps.l) + 1.0) * (mc.im - mc.norm_sqr())))
+        .collect();
+    // convergence check
+    let max_l = matching::converged_values(&cs_l, 1e-6);
+    // sum
+    let result = cs_l[..max_l].iter().sum();
+    (max_l, result)
 }
 
 pub fn diff_cross_spin_zero(

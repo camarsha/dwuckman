@@ -1,6 +1,6 @@
 use crate::{
     integrate,
-    matching::{self, converged_values, PhaseShift},
+    matching::{self, PhaseShift},
     potentials::FormFactor,
     wave_function::WaveFunction,
 };
@@ -72,8 +72,7 @@ pub fn calc_phase_shifts(r_grid: &[f64], ff: FormFactor, num_l: i32, h: f64) -> 
     // the grid points to match at
     let (r_idx, rho_r, rho_rh) = match_points(r_grid, ff.k);
 
-    let phase_shifts: Vec<matching::PhaseShift> = ell
-        .into_par_iter()
+    ell.into_par_iter()
         .map(|l| {
             // create wave function
             let mut phi = WaveFunction::new(r_grid);
@@ -105,10 +104,7 @@ pub fn calc_phase_shifts(r_grid: &[f64], ff: FormFactor, num_l: i32, h: f64) -> 
 
             matching::phase_shift(phi_r, phi_rh, rho_r, rho_rh, ff.eta, l)
         })
-        .collect();
-
-    // Now we check for convergence
-    converged_values(phase_shifts.as_slice())
+        .collect()
 }
 
 /// Calculate the Wave Function for a single l-value

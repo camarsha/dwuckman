@@ -76,20 +76,20 @@ pub fn phase_shift(
     PhaseShift::new(-1.0 * (num / denom).atan(), l)
 }
 
-#[inline(always)]
-pub fn s_matrix(phase_shift: Complex64) -> Complex64 {
+pub fn _s_matrix(phase_shift: Complex64) -> Complex64 {
     (2.0_f64 * Complex::i() * phase_shift).exp()
 }
 
 /// Given a vector of PhaseShift structs that are already ordered according to
 /// l_i > l_{i - 1}, return a new vector that only has the strictly increasing
 /// real S-matrix values.
-pub fn converged_values(phase_shifts: &[PhaseShift]) -> Vec<PhaseShift> {
+/// This is now obsolete and has been replaced with the absend procedure.
+fn _old_converged_values(phase_shifts: &[PhaseShift]) -> Vec<PhaseShift> {
     let mut stop_l: usize = phase_shifts.len();
     let mut begin_check = false;
     for (i, &ele) in phase_shifts.iter().enumerate() {
-        let re = s_matrix(ele.val).re;
-        if begin_check && (re < s_matrix(phase_shifts[i - 1].val).re) || (re >= 1.0) {
+        let re = _s_matrix(ele.val).re;
+        if begin_check && (re < _s_matrix(phase_shifts[i - 1].val).re) || (re >= 1.0) {
             stop_l = i; // stopping index is exclusive
             break;
         }
@@ -104,8 +104,32 @@ pub fn converged_values(phase_shifts: &[PhaseShift]) -> Vec<PhaseShift> {
         // This means that the values never crossed 0.99, raise an error.
         panic!(
             "Non-convergence in phase shifts! Last value: {:.5}",
-            s_matrix(phase_shifts.last().unwrap().val).re
+            _s_matrix(phase_shifts.last().unwrap().val).re
         );
     }
     phase_shifts[..stop_l].to_vec()
+}
+
+/// Find the maximum partial wave such that the total
+/// reaction cross section is less than absend millibarns for
+/// for the last three successive partial waves.
+pub fn converged_values(tot_cs: &[f64], absend: f64) -> usize {
+    let mut n_times: i32 = 0;
+    for (i, &cs) in tot_cs.iter().enumerate() {
+        if cs <= absend {
+            n_times += 1;
+        } else {
+            n_times = 0;
+        }
+        if n_times == 3 {
+            // we want phase shift slices to be inclusive of this number.
+            return i + 1;
+        }
+    }
+    // we never got convergence, let the user know
+    panic!(
+        "Non-convergence in cross section after {} partial waves. Lower absend={} or increase partial waves!",
+        tot_cs.len(),
+        absend
+    );
 }

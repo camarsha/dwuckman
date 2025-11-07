@@ -209,11 +209,12 @@ fn spin_zero(
     // calculate the scattering amplitude note that ff will be moved
     let ps = calculation::calc_phase_shifts(r_grid.as_slice(), ff, partial_waves, dr);
     let mel_coeff = cross_section::melkanoff_coeff(ps.as_slice());
-    let tot_cs = cross_section::cross_section_spin_zero(ps.as_slice(), mel_coeff.as_slice(), k);
+    let (max_l, tot_cs) =
+        cross_section::cross_section_spin_zero(ps.as_slice(), mel_coeff.as_slice(), k);
     let diff_cs: Vec<f64> = cross_section::diff_cross_spin_zero(
         angles.as_slice(),
-        ps.as_slice(),
-        mel_coeff.as_slice(),
+        &ps[..max_l],
+        &mel_coeff[..max_l],
         k,
         eta,
     );
