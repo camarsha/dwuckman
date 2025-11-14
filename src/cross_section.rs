@@ -55,6 +55,7 @@ pub fn cross_section_spin_zero(
     phase_shifts: &[matching::PhaseShift],
     mel_coeff: &[Complex64],
     k: f64,
+    absend: f64
 ) -> (usize, f64) {
     let coeff = 10.0 * (4.0 * PI) / (k.powi(2));
     let cs_l: Vec<f64> = mel_coeff
@@ -63,7 +64,7 @@ pub fn cross_section_spin_zero(
         .map(|(mc, ps)| coeff * (((2.0 * ps.l) + 1.0) * (mc.im - mc.norm_sqr())))
         .collect();
     // convergence check
-    let max_l = matching::converged_values(&cs_l, 1e-6);
+    let max_l = matching::converged_values(&cs_l, absend);
     // sum
     let result = cs_l[..max_l].iter().sum();
     (max_l, result)

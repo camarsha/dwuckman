@@ -3,7 +3,9 @@ import numpy as np
 
 
 class SpinZero:
-    def __init__(self, m1, z1, m2, z2, n_partial_waves, r_match, dr) -> None:
+    def __init__(
+        self, m1, z1, m2, z2, n_partial_waves, r_match, dr, absend=1e-3
+    ) -> None:
         self.m1 = m1
         self.m2 = m2
         self.z1 = z1
@@ -11,6 +13,7 @@ class SpinZero:
         self.n_partial_waves = n_partial_waves
         self.r_match = r_match
         self.dr = dr
+        self.absend = absend
 
     def wave_function(self, energy_lab, ell, pot_params):
         r, re, im = wave_function_spin_zero(
@@ -60,5 +63,6 @@ class SpinZero:
             angles,
             self.r_match,
             self.dr,
+            self.absend,
         )
         return tot, np.asarray(diff), np.asarray(ruth)

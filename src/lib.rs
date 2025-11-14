@@ -192,6 +192,7 @@ fn spin_zero(
     angles: Vec<f64>,
     r_match: f64,
     dr: f64,
+    absend: f64
 ) -> (f64, Vec<f64>, Vec<f64>) {
     // common parameters that are needed.
     let (angles, r_grid, ff, _mu, eta, k) = common_spin_zero(
@@ -210,7 +211,7 @@ fn spin_zero(
     let ps = calculation::calc_phase_shifts(r_grid.as_slice(), ff, partial_waves, dr);
     let mel_coeff = cross_section::melkanoff_coeff(ps.as_slice());
     let (max_l, tot_cs) =
-        cross_section::cross_section_spin_zero(ps.as_slice(), mel_coeff.as_slice(), k);
+        cross_section::cross_section_spin_zero(ps.as_slice(), mel_coeff.as_slice(), k, absend);
     let diff_cs: Vec<f64> = cross_section::diff_cross_spin_zero(
         angles.as_slice(),
         &ps[..max_l],
