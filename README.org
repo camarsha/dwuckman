@@ -1,2 +1,26 @@
 * ~dwuckman~: Efficient Optical Model Calculations in Python
 
+* Examples
+  At the current time, after the code was parallelized and more thoroughly tested, only spin zero particles are supported. Right now the API is fairly low level.
+
+#+begin_src python
+  import dwuckman
+  m1 = 1.007 # masses in amu, code will convert to A when needed
+  m2 = 12.0
+  z1 = 1.0 # charge number
+  z2 = 6.0
+  n_partial_waves = 60
+  r_match = 40.0 # units of fm
+  dr = 0.1 # units of fm
+  sz = dwuckman.SpinZero(m1, m2, z1, z2, n_partial_waves, r_match, dr)
+
+  e_lab = 35.0 # MeV
+  angles = [i for i in range(180)]
+  pot_params = dwuckman.make_parameters(V=185.0, r=1.25, a=0.6, W=25.0, riv=1.5, aiv=0.35)
+  # cs_tot: total cross section in mb
+  # cs: np.array of differential cross section in mb/sr
+  # ruth: np.array of the Rutherford cross section in mb/sr
+  cs_tot, cs, ruth = sz.cross_section(e_lab, angles, pot_params)
+#+end_src
+
+The ~SpinZero~ class also has methods for returning the wave function and S-matrix.
