@@ -77,6 +77,5 @@ class SpinZero:
             ps_real,
             ps_img,
             angles,
-            self.absend,
         )
         return tot, np.asarray(diff), np.asarray(ruth)

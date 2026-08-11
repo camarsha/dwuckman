@@ -235,7 +235,6 @@ fn spin_zero_from_ps(
     ps_real: Vec<f64>,
     ps_img: Vec<f64>,
     angles: Vec<f64>,
-    absend: f64,
 ) -> (f64, Vec<f64>, Vec<f64>) {
     let (m1_mev, m2_mev, _a1, _a2, _a13) = mass_constants(m1, m2);
 
@@ -257,12 +256,12 @@ fn spin_zero_from_ps(
         .collect();
     // Now everything can proceed the same as before.
     let mel_coeff = cross_section::melkanoff_coeff(ps.as_slice());
-    let (max_l, tot_cs) =
-        cross_section::cross_section_spin_zero(ps.as_slice(), mel_coeff.as_slice(), k, absend);
+    let tot_cs =
+        cross_section::cross_section_spin_zero_no_check(ps.as_slice(), mel_coeff.as_slice(), k);
     let diff_cs: Vec<f64> = cross_section::diff_cross_spin_zero(
         angles.as_slice(),
-        &ps[..max_l],
-        &mel_coeff[..max_l],
+        ps.as_slice(),
+        mel_coeff.as_slice(),
         k,
         eta,
     );
