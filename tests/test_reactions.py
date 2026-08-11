@@ -25,7 +25,7 @@ class ECISInterface:
         return f" 0.00 1 1+{e_lab:10.5f}{spin:10.5f}{proj_mass:10.5f}{res_mass:10.5f}{z_prod:10.5f}\n"
 
     def _ecis_calc_parameters(self) -> str:
-        return "    1   20    1    1\n"
+        return "    1   60    1    1\n"
 
     def _100_flags_for_ecis(self) -> str:
         # Produces the header for the ecis file
@@ -130,8 +130,8 @@ def dwuckman_to_ecis_comp(a1, z1, a2, z2, e_lab, v, r, a, w, r_i, a_i, r_c):
         .run_ecis()
         .read_ecis_output()
     )
-    sz = dwuckman.SpinZero(a1, z1, a2, z2, 60, 40.0, 0.01)
-    pp = dwuckman.make_parameters(V=v, r=a, a=a, W=w, riv=r_i, aiv=a_i, rc=r_c)
+    sz = dwuckman.SpinZero(a1, z1, a2, z2, 60, 40.0, 0.01, 1e-5)
+    pp = dwuckman.make_parameters(V=v, r=r, a=a, W=w, riv=r_i, aiv=a_i, rc=r_c)
     tot, cs_dm, csr_dm = sz.cross_section(
         e_lab,
         angles[1:],
@@ -144,7 +144,7 @@ def dwuckman_to_ecis_comp(a1, z1, a2, z2, e_lab, v, r, a, w, r_i, a_i, r_c):
         cs_dm,
         csr_dm,
         np.abs(np.array(cs_dm) - cs_ecis[1:]) / cs_ecis[1:],
-        np.abs(np.array(csr_dm) - csr_ecis[1:]) / csr_ecis[1:],
+        np.abs(np.array(cs_dm / csr_dm) - csr_ecis[1:]) / csr_ecis[1:],
     )
 
 
