@@ -5,9 +5,7 @@ import pytest
 
 
 class ECISInterface:
-    def __init__(
-        self, input_filename: str, output_filename="output.txt"
-    ) -> None:
+    def __init__(self, input_filename: str, output_filename="output.txt") -> None:
         self.input_filename = input_filename
         self.output_filename = output_filename
 
@@ -39,9 +37,7 @@ class ECISInterface:
         return header
 
     def _i_dont_know_lines(self) -> str:
-        return (
-            "   0.00000   0.00000              1.e-10    1.e-10    1.e-30\n\n"
-        )
+        return "   0.00000   0.00000              1.e-10    1.e-10    1.e-30\n\n"
 
     def _end_of_ecis_input(self) -> str:
         return "fin\n"
@@ -134,26 +130,12 @@ def dwuckman_to_ecis_comp(a1, z1, a2, z2, e_lab, v, r, a, w, r_i, a_i, r_c):
         .run_ecis()
         .read_ecis_output()
     )
-    tot, cs_dm, csr_dm = dwuckman.spin_zero(
-        a1,
-        z1,
-        a2,
-        z2,
+    sz = dwuckman.SpinZero(a1, z1, a2, z2, 60, 40.0, 0.01)
+    pp = dwuckman.make_parameters(V=v, r=a, a=a, W=w, riv=r_i, aiv=a_i, rc=r_c)
+    tot, cs_dm, csr_dm = sz.cross_section(
         e_lab,
-        v,
-        r,
-        a,
-        w,
-        r_i,
-        a_i,
-        0.0,
-        0.0,
-        0.0,
-        r_c,
-        60,
         angles[1:],
-        40.0,
-        0.01,
+        pp,
     )
     return (
         angles[1:],
