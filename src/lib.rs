@@ -6,6 +6,8 @@ mod matching;
 mod potentials;
 mod wave_function;
 use constants::*;
+use matching::PhaseShift;
+use num::complex::Complex64;
 use potentials::FormFactor;
 use pyo3::prelude::*;
 use std::f64::consts::PI;
@@ -224,8 +226,48 @@ fn spin_zero(
 }
 
 #[pyfunction]
-fn spin_zero_from_ps() {
-    !todo!();
+fn spin_zero_from_ps(
+    m1: f64,
+    z1: f64,
+    m2: f64,
+    z2: f64,
+    energy_lab: f64,
+    ps_real: Vec<f64>,
+    ps_img: Vec<f64>,
+    angles: Vec<f64>,
+    absend: f64,
+) -> (f64, Vec<f64>, Vec<f64>) {
+    let (m1_mev, m2_mev, _a1, _a2, _a13) = mass_constants(m1, m2);
+
+    // energy constants
+    let energy_com = com_energy(energy_lab, m1, m2);
+    let mu = reduced_mass(m1_mev, m2_mev);
+    let k = wave_number(energy_com, mu);
+    let eta = coulomb_wf_eta(z1, z2, mu, k);
+
+    // check and convert angles
+    let angles: Vec<f64> = deg_to_rad(&angles);
+
+    // first we need to make the phase shift objects
+    let ps: Vec<PhaseShift> = ps_real
+        .iter()
+        .zip(ps_img.iter())
+        .enumerate()
+        .map(|(l, (&re, &im))| PhaseShift::new(Complex64::new(re, im), l as f64))
+        .collect();
+    // Now everything can proceed the same as before.
+    let mel_coeff = cross_section::melkanoff_coeff(ps.as_slice());
+    let (max_l, tot_cs) =
+        cross_section::cross_section_spin_zero(ps.as_slice(), mel_coeff.as_slice(), k, absend);
+    let diff_cs: Vec<f64> = cross_section::diff_cross_spin_zero(
+        angles.as_slice(),
+        &ps[..max_l],
+        &mel_coeff[..max_l],
+        k,
+        eta,
+    );
+    let ruth: Vec<f64> = cross_section::rutherford_cs(angles.as_slice(), k, eta);
+    (tot_cs, diff_cs, ruth)
 }
 
 /// Lightweight optical model used in Python written in Rust.

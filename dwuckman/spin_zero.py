@@ -1,4 +1,4 @@
-from .dwuckman import spin_zero, wave_function_spin_zero, phase_shift_spin_zero
+from .dwuckman import spin_zero, wave_function_spin_zero, phase_shift_spin_zero, spin_zero_from_ps
 import numpy as np
 
 
@@ -63,6 +63,20 @@ class SpinZero:
             angles,
             self.r_match,
             self.dr,
+            self.absend,
+        )
+        return tot, np.asarray(diff), np.asarray(ruth)
+
+    def cross_section_from_phase_shifts(self, energy_lab, angles, ps_real, ps_img):
+        tot, diff, ruth = spin_zero_from_ps(
+            self.m1,
+            self.z1,
+            self.m2,
+            self.z2,
+            energy_lab,
+            ps_real,
+            ps_img,
+            angles,
             self.absend,
         )
         return tot, np.asarray(diff), np.asarray(ruth)
